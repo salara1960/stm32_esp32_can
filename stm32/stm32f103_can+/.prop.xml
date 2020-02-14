@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdtprojectproperties>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.IncludePaths">
+<language name="S">
+<includepath>Inc</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Inc</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Middlewares/Third_Party/FreeRTOS/Source/include</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM3</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/CMSIS/Device/ST/STM32F1xx/Include</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/CMSIS/Include</includepath>
+
+</language>
+<language name="C Source File">
+<includepath>Inc</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Inc</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Middlewares/Third_Party/FreeRTOS/Source/include</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM3</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/CMSIS/Device/ST/STM32F1xx/Include</includepath>
+<includepath>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/CMSIS/Include</includepath>
+
+</language>
+<language name="Object File">
+
+</language>
+<language name="s">
+
+</language>
+<language name="Assembly Source File">
+
+</language>
+</section>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.Macros">
+<language name="S">
+<macro>
+<name>__weak</name><value>"__attribute__((weak))"</value>
+</macro>
+<macro>
+<name>__packed</name><value>"__attribute__((__packed__))"</value>
+</macro>
+<macro>
+<name>USE_HAL_DRIVER</name><value/>
+</macro>
+<macro>
+<name>STM32F103xB</name><value/>
+</macro>
+
+</language>
+<language name="C Source File">
+<macro>
+<name>__weak</name><value>"__attribute__((weak))"</value>
+</macro>
+<macro>
+<name>__packed</name><value>"__attribute__((__packed__))"</value>
+</macro>
+<macro>
+<name>USE_HAL_DRIVER</name><value/>
+</macro>
+<macro>
+<name>STM32F103xB</name><value/>
+</macro>
+
+</language>
+<language name="Object File">
+
+</language>
+<language name="s">
+
+</language>
+<language name="Assembly Source File">
+
+</language>
+</section>
+</cdtprojectproperties>
