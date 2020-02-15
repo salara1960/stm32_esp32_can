@@ -62,8 +62,6 @@ ADC_HandleTypeDef hadc1;
 
 CAN_HandleTypeDef hcan;
 
-I2C_HandleTypeDef hi2c2;
-
 RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
@@ -141,7 +139,6 @@ static void MX_ADC1_Init(void);
 static void MX_RTC_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_CAN_Init(void);
 void TaskDef(void const * argument);
 
@@ -190,7 +187,6 @@ int main(void)
   MX_RTC_Init();
   MX_TIM1_Init();
   MX_SPI1_Init();
-  MX_I2C2_Init();
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
 
@@ -401,12 +397,12 @@ static void MX_CAN_Init(void)
 	//hcan.Init.Mode = can_mode;//default CAN_MODE_NORMAL -> if CAN_LOOP_Pin == (GPIO_PIN_SET)1
 	// speed = 36MHz / 12 /(3+2+1) = 0.5 MHz
 	// 36/24/(3+2+1) = 0.25MHz = 250KHz
-        // 36/48/(3+2+1) = 0.125MHz = 125KHz
+    // 36/48/(3+2+1) = 0.125MHz = 125KHz
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 48;//24;//12
-  hcan.Init.Mode = CAN_MODE_LOOPBACK;
+  hcan.Init.Prescaler = 48;
+  hcan.Init.Mode = CanMode;//CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
   hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
@@ -416,8 +412,6 @@ static void MX_CAN_Init(void)
   hcan.Init.AutoRetransmission = DISABLE;
   hcan.Init.ReceiveFifoLocked = DISABLE;
   hcan.Init.TransmitFifoPriority = DISABLE;
-//
-//
   if (HAL_CAN_Init(&hcan) != HAL_OK)
   {
     Error_Handler();
@@ -450,12 +444,6 @@ static void MX_CAN_Init(void)
     Error_Handler();
   }
 
-  /* Start the CAN peripheral
-  if (HAL_CAN_Start(&hcan) != HAL_OK) {
-	  errLedOn(__func__);
-    Error_Handler();
-  } */
-
   /* Activate CAN RX notification */
   if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
 	  errLedOn(__func__);
@@ -463,7 +451,7 @@ static void MX_CAN_Init(void)
   }
 
   /* Configure Transmission process */
-  TxHdr.StdId = 0x321;
+  TxHdr.StdId = MSG_PACK;
   TxHdr.ExtId = 0x01;
   TxHdr.RTR = CAN_RTR_DATA;
   TxHdr.IDE = CAN_ID_STD;
@@ -477,40 +465,6 @@ static void MX_CAN_Init(void)
   }
 
   /* USER CODE END CAN_Init 2 */
-
-}
-
-/**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C2_Init(void)
-{
-
-  /* USER CODE BEGIN I2C2_Init 0 */
-
-  /* USER CODE END I2C2_Init 0 */
-
-  /* USER CODE BEGIN I2C2_Init 1 */
-
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.ClockSpeed = 400000;
-  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -1022,17 +976,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hc)
 {
     if (hc->Instance == CAN1) {
-
     	if (HAL_CAN_GetRxMessage(hc, CAN_RX_FIFO0, &RxHdr, RxData) == HAL_OK) {
-    		if ((hc->Init.Mode != CAN_MODE_LOOPBACK) && (RxHdr.StdId == 0x321) && (RxHdr.IDE == CAN_ID_STD) && (RxHdr.DLC == TxCanLen)) {
-    			s_rx_can_t evt;
-    			memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
-    			memcpy((uint8_t *)&evt.data, RxData, MAX_CAN_BUF);
-    			BaseType_t PriorityTaskWoken = 1, xCopyPosition = 0;
-    			xQueueGenericSendFromISR(CanQueue, (const void *)&evt, &PriorityTaskWoken, xCopyPosition);
-    		}
+    		if (RxHdr.StdId == MSG_PACK) {
+    			if (RxHdr.DLC == sizeof(uint32_t)) {
+    				uint32_t epoch = 0;
+    				memcpy((uint8_t *)&epoch, RxData, sizeof(uint32_t));
+    				set_Date((time_t)epoch);
+    			} else if (hc->Init.Mode == CAN_MODE_LOOPBACK) {
+    				s_rx_can_t evt;
+    				memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
+    				memcpy((uint8_t *)&evt.data, RxData, RxHdr.DLC);
+    				BaseType_t PriorityTaskWoken = 1, xCopyPosition = 0;
+    				xQueueGenericSendFromISR(CanQueue, (const void *)&evt, &PriorityTaskWoken, xCopyPosition);
+    			}
+    		}// else if ((hc->Init.Mode == CAN_MODE_LOOPBACK) && (RxHdr.StdId == MSG_PACK) && (RxHdr.DLC == TxCanLen)) {
     	} else Error_Handler();
-
     }
 }
 //*************************************************************************************************
@@ -1070,10 +1028,11 @@ void TaskDef(void const * argument)
 	uint16_t ik = 0;
 	s_rx_can_t evt = {0};
 	char stx[MAX_CAN_BUF << 3] = {0};
+	char screen[64] = {0};
 	uint8_t col = 0, cnt = 0;
 	int8_t i;
 	uint32_t ts = 0, tmr = get_tmr(1);
-        uint32_t cnt_tx = 0, cnt_rx = 0;
+    uint32_t cnt_tx = 0, cnt_rx = 0;
 	short dl = 0, ldl = 1;
 #ifdef SET_FLOAT_PART
 	s_float_t vcc = {0, 0};
@@ -1081,11 +1040,10 @@ void TaskDef(void const * argument)
 	//
 	TxCanLen = 8;
 	TxHdr.DLC = TxCanLen;
-	TxHdr.StdId = 0x321;
+	TxHdr.StdId = MSG_PACK;
 	TxHdr.ExtId = 0x01;
 	TxHdr.RTR = CAN_RTR_DATA;
 	TxHdr.IDE = CAN_ID_STD;
-	TxHdr.DLC = TxCanLen;
 	TxHdr.TransmitGlobalTime = ENABLE;//DISABLE;
 	//
 
@@ -1114,8 +1072,8 @@ void TaskDef(void const * argument)
 				stx[0] = 0;
 				//
 				ts = get_Date();
-				memcpy(&TxData[4], (uint32_t *)&ts, sizeof(uint32_t));
-				memcpy(TxData, (uint8_t *)&vcc, sizeof(uint32_t));
+				memcpy(TxData, (uint32_t *)&ts, sizeof(uint32_t));
+				memcpy(&TxData[4], (uint8_t *)&vcc, sizeof(uint32_t));
 				//
 				ik = 0;
 				while (!HAL_CAN_GetTxMailboxesFreeLevel(&hcan) && ++ik) {}
@@ -1124,11 +1082,11 @@ void TaskDef(void const * argument)
 				if (HAL_CAN_AddTxMessage(&hcan, &TxHdr, TxData, &TxMailbox) != HAL_OK) errLedOn("HAL_CAN_AddTxMessage()");
 				else
 				for (i = 0; i < MAX_CAN_BUF; i++) sprintf(stx+strlen(stx), " %02X", TxData[i]);
-                                cnt_tx++;
+				cnt_tx++;
 				//
-                                ssd1306_clear_line(6);
-                                col = ssd1306_calcx(sprintf(buf, "Tx msg #%lu", cnt_tx));
-				ssd1306_text_xy(buf, col, 6);
+                ssd1306_clear_line(6);
+                col = ssd1306_calcx(sprintf(screen, "Tx msg #%lu", cnt_tx));
+				ssd1306_text_xy(screen, col, 6);
 				//
 #ifdef SET_FLOAT_PART
 				sprintf(buf, "Id=0x%lX #%lu, Vcc=%u.%u Time=%lu TX[%lu]=%s\n",
@@ -1143,15 +1101,25 @@ void TaskDef(void const * argument)
 		}
 		//
 		if (xQueueReceive(CanQueue, &evt, (TickType_t)0) == pdTRUE) {
-			ssd1306_clear_line(8);
-			ssd1306_text_xy(buf, ssd1306_calcx(sprintf(buf, "Volt : %u.%u", vcc.cel, vcc.dro)), 8);
-			memcpy((uint8_t *)&ts, (uint8_t *)&evt.data[4], sizeof(uint32_t));
-			memcpy((uint8_t *)&vcc, evt.data, sizeof(uint32_t));
+			cnt_rx++;
 			stx[0] = 0;
-			for (i = 0; i < MAX_CAN_BUF; i++) sprintf(stx+strlen(stx), " %02X", evt.data[i]);
-                        cnt_rx++;
-			Report(TAGCAN, true, "Id=0x%lX #%lu, Vcc=%u.%u Time=%lu RX[%lu]=%s\n",
-				     evt.hdr.StdId, cnt_rx, vcc.cel, vcc.dro, ts, evt.hdr.DLC, stx);
+			dl = 0;
+			for (i = 0; i < evt.hdr.DLC; i++) sprintf(stx+strlen(stx), " %02X", evt.data[i]);
+			ssd1306_clear_line(8);
+			if (evt.hdr.StdId == MSG_PACK) {
+				memcpy((uint8_t *)&ts, (uint8_t *)&evt.data, sizeof(uint32_t));
+				if (evt.hdr.DLC == TxCanLen) {
+					dl = sprintf(screen, "Volt : %u.%u", vcc.cel, vcc.dro);
+					memcpy((uint8_t *)&vcc, (uint32_t *)&evt.data[4], sizeof(uint32_t));
+					Report(TAGCAN, true, "Id=0x%lX #%lu, Vcc=%u.%u Time=%lu RX[%lu]=%s\n",
+				                         evt.hdr.StdId, cnt_rx, vcc.cel, vcc.dro, ts, evt.hdr.DLC, stx);
+				} else if (evt.hdr.DLC == sizeof(uint32_t)) {
+					dl = sprintf(screen, "Rx msg #%lu", cnt_rx);
+					Report(TAGCAN, true, "Id=0x%lX #%lu, Epoch=%lu RX[%lu]=%s\n",
+								         evt.hdr.StdId, cnt_rx, ts, evt.hdr.DLC, stx);
+				}
+			}
+			if (dl) ssd1306_text_xy(screen, ssd1306_calcx(dl), 8);
 		}
 		osDelay(1);
 	}

@@ -3,6 +3,7 @@
 
 #include "../version.c"
 
+
 //*******************************************************************
 
 uint8_t restart_flag = 0;
@@ -50,7 +51,10 @@ uint32_t tls_client_ip = 0;
     uint8_t sntp_go = 0;
 #endif
 
+
 uint16_t tls_port = 0;
+uint16_t ws_port = 0;
+
 
 static int s_retry_num = 0;
 
@@ -58,6 +62,9 @@ static uint32_t varta = 0;
 static bool scr_ini_done = false;
 //static uint8_t scr_len = 0;
 //static char scr_line[32] = {0};
+static uint8_t secFlag = 10;
+static uint8_t led = LED_OFF;
+uint32_t tperiod = 100000;//100000 us = 100 ms
 
 
 #ifdef SET_NET_LOG
@@ -66,6 +73,7 @@ static bool scr_ini_done = false;
 
 #ifdef SET_CAN_DEV
     can_mode_t canMode = CAN_MODE_NORMAL;
+    uint16_t canSpeed = 125;
 #endif
 
 
@@ -85,6 +93,13 @@ static uint32_t get_varta()
 static void periodic_timer_callback(void* arg)
 {
     varta++; //100ms period
+
+    secFlag--;
+    if (!secFlag) {
+        secFlag = tperiod/10000;//10;
+        led = ~led;
+        gpio_set_level(GPIO_LOG_PIN, led);
+    }
 }
 //--------------------------------------------------------------------------------------
 uint32_t get_tmr(uint32_t tm)
@@ -420,6 +435,8 @@ void app_main()
         cli_id = ntohl(cli_id);
     }
 
+    vTaskDelay(1000 / portTICK_RATE_MS);
+
     ets_printf("\nApp version %s | MAC %s | SDK Version %s | FreeMem %u\n", Version, sta_mac, esp_get_idf_version(), xPortGetFreeHeapSize());
 
     //--------------------------------------------------------
@@ -449,9 +466,12 @@ void app_main()
     esp_timer_handle_t periodic_timer;
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
 
-    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 100000));//100000 us = 100 ms
+
+    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, tperiod));//100000 us = 100 ms
     ets_printf("[%s] Started timer with period 100 ms, time since boot: %lld/%llu\n",
-               TAGT, esp_timer_get_time(), get_varta() * 100);
+                    TAGT,
+                    esp_timer_get_time(),
+                    get_varta() * 100);
 
     //--------------------------------------------------------
 
@@ -545,6 +565,26 @@ void app_main()
 #endif
 
 
+#ifdef SET_CAN_DEV
+    err = read_param(PARAM_CAN_SPEED, (void *)&canSpeed, sizeof(uint16_t));
+    if ((err != ESP_OK) || (!rt)) {
+        canSpeed = 125;
+        save_param(PARAM_CAN_SPEED, (void *)&canSpeed, sizeof(uint16_t));
+    }
+    ets_printf("[%s] CAN_SPEED: %u KHz\n", TAGT, canSpeed);
+#endif
+
+
+#ifdef SET_WS
+    err = read_param(PARAM_WS_PORT, (void *)&ws_port, sizeof(uint16_t));
+    if ((err != ESP_OK) || (!rt)) {
+        ws_port = WS_PORT;
+        save_param(PARAM_WS_PORT, (void *)&ws_port, sizeof(uint16_t));
+    }
+    ets_printf("[%s] WS_PORT: %u\n", TAGT, ws_port);
+#endif
+
+
 //******************************************************************************************************
 
     adc1_config_width(ADC_WIDTH_12Bit);
@@ -598,36 +638,21 @@ void app_main()
 
 
 #ifdef SET_CAN_DEV
-
-/*
-#define CAN_GENERAL_CONFIG_DEFAULT(tx_io_num, rx_io_num, op_mode) {.mode = op_mode, .tx_io = tx_io_num, .rx_io = rx_io_num, \
-                                                                   .clkout_io = CAN_IO_UNUSED, .bus_off_io = CAN_IO_UNUSED, \
-                                                                   .tx_queue_len = 5, .rx_queue_len = 5, \
-                                                                   .alerts_enabled = CAN_ALERT_NONE,  .clkout_divider = 0, }
-
-*/
-    //Install CAN driver
     static const can_filter_config_t f_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
+
+    //{.brp = 32, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
     static const can_timing_config_t t_config = CAN_TIMING_CONFIG_125KBITS();
     uint32_t cspeed = 80000 / t_config.brp / (1 + t_config.tseg_1 + t_config.tseg_2);//in KHz
-/*
-#define CAN_TIMING_CONFIG_25KBITS()     {.brp = 128, .tseg_1 = 16, .tseg_2 = 8, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_50KBITS()     {.brp = 80, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_100KBITS()    {.brp = 40, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_125KBITS()    {.brp = 32, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_250KBITS()    {.brp = 16, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_500KBITS()    {.brp = 8, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_800KBITS()    {.brp = 4, .tseg_1 = 16, .tseg_2 = 8, .sjw = 3, .triple_sampling = false}
-#define CAN_TIMING_CONFIG_1MBITS()      {.brp = 4, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-*/
-    //Set moed to CAN_MODE_NO_ACK to self testing //CAN_MODE_NORMAL
+
     static can_general_config_t g_config = CAN_GENERAL_CONFIG_DEFAULT(TX_GPIO_NUM, RX_GPIO_NUM, CAN_MODE_NO_ACK);
     if (canMode != g_config.mode) g_config.mode = canMode;
+
     if (can_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
         can_start();
-        if (xTaskCreatePinnedToCore(&can_task, "can_task", 4*STACK_SIZE_1K, &cspeed, 9, NULL, 0) != pdPASS) {
+        if (xTaskCreatePinnedToCore(&can_task, "can_task", 4*STACK_SIZE_1K, &cspeed, 8, NULL, 0) != pdPASS) {
             ESP_LOGE(TAGCAN, "Create can_task failed | FreeMem %u", xPortGetFreeHeapSize());
-        } else vTaskDelay(250 / portTICK_RATE_MS);
+        }
+        vTaskDelay(500 / portTICK_RATE_MS);
     } else {
         ESP_LOGI(TAGCAN, "CAN Driver install Error. | FreeMem %u", xPortGetFreeHeapSize());
     }
@@ -635,10 +660,20 @@ void app_main()
 
 
 #ifdef SET_TLS_SRV
-    if (xTaskCreatePinnedToCore(&tls_task, "tls_task", 8*STACK_SIZE_1K, &tls_port, 8, NULL, 0) != pdPASS) {//6,NULL,1)
+    if (xTaskCreatePinnedToCore(&tls_task, "tls_task", 8*STACK_SIZE_1K, &tls_port, 7, NULL, 0) != pdPASS) {//6,NULL,1)
         ESP_LOGE(TAGTLS, "Create tls_task failed | FreeMem %u", xPortGetFreeHeapSize());
-    } else vTaskDelay(250 / portTICK_RATE_MS);
+    }
+    vTaskDelay(500 / portTICK_RATE_MS);
 #endif
+
+
+#ifdef SET_WS
+    if (xTaskCreatePinnedToCore(&ws_task, "ws_task", 4*STACK_SIZE_1K, &ws_port, 7, NULL, 0) != pdPASS) {//8//10//7
+        ESP_LOGE(TAGWS, "Create ws_task failed | FreeMem %u", xPortGetFreeHeapSize());
+    }
+#endif
+
+
 
 
     while (!restart_flag) {//main loop

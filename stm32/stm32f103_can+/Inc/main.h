@@ -108,6 +108,7 @@ void Error_Handler(void);
 #define OLED_MOSI_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+#define MSG_PACK 0x321 //message packet[8] = {{vcc.cel, vcc.dro}, ts}
 
 #ifdef SET_OLED_SPI
 	SPI_HandleTypeDef *portOLED;

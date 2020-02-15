@@ -6,9 +6,11 @@
 #ifdef SET_CAN_DEV
     #include "driver/can.h"
 
+    #undef SET_EPOCH_SEND
+
     #define TX_GPIO_NUM             17//21
     #define RX_GPIO_NUM             16//22
-    #define MSG_ID                  0x321//0x555   //11 bit standard format ID
+    #define MSG_PACK                0x321//0x555   //11 bit standard format ID
     #define MAX_LEN_DATA            8
 
     #define ScreenTxLine            4

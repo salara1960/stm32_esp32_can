@@ -167,7 +167,8 @@
 #define PARAM_KEY_NAME    "key"
 #define PARAM_WMODE_NAME  "wmode"
 #define PARAM_TLS_PORT    "tport"
-#define PARAM_MSMODE_NAME "msm"
+#define PARAM_WS_PORT     "wsport"
+#define PARAM_CAN_SPEED   "cspeed"
 
 
 #define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
@@ -260,6 +261,10 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
 #ifdef SET_CAN_DEV
     #include "can.h"
     extern can_mode_t canMode;
+#endif
+
+#ifdef SET_WS
+    #include "ws.h"
 #endif
 
 

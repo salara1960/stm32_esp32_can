@@ -143,10 +143,6 @@
 			<type>1</type>
 			<location>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_spi.c</location>
 		</link><link>
-			<name>Drivers/STM32F1xx_HAL_Driver/stm32f1xx_hal_i2c.c</name>
-			<type>1</type>
-			<location>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c</location>
-		</link><link>
 			<name>Drivers/STM32F1xx_HAL_Driver/stm32f1xx_hal_can.c</name>
 			<type>1</type>
 			<location>/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.0/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_can.c</location>

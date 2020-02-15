@@ -135,7 +135,7 @@ char stx[64];
     srv = create_tcp_server(tp);
     if (srv >= 0) {
         fcntl(srv, F_SETFL, (fcntl(srv, F_GETFL, 0)) | O_NONBLOCK);
-        gpio_set_level(GPIO_LOG_PIN, LED_ON);//0 //led ON
+//        gpio_set_level(GPIO_LOG_PIN, LED_ON);//0 //led ON
         ets_printf("[%s] Wait new log_client... | FreeMem %u\n", TAGLOG, xPortGetFreeHeapSize());
         while (!restart_flag) {
             tcpCli = accept(srv, (struct sockaddr*)&client_addr, &socklen);
