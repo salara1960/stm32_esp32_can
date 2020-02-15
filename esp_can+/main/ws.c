@@ -2,9 +2,8 @@
 
 #ifdef SET_WS
 
-#include "main.h"
-
-//#include "includes.h"
+//#include "main.h"
+#include "ws.h"
 
 
 //------------------------------------------------------------------------------------------------------------
@@ -12,13 +11,18 @@
 const char *TAGWS = "WS";
 uint8_t ws_start = 0;
 
+bool wsCliRdy = false;
 static bool WS_conn = false;
 
 const char WS_sec_WS_keys[] = "Sec-WebSocket-Key:";
 const char WS_sec_conKey[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const char WS_srv_hs[] ="HTTP/1.1 101 Switching Protocols \r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %.*s\r\n\r\n";
 
+const char *instr = "salara";
+const char *auth_patt = "{\"auth\":\"";
 
+
+err_t WS_write_data(int sc, char *p_data, size_t length);
 //------------------------------------------------------------------------------------------------------------
 
 
@@ -187,6 +191,15 @@ int err = ws_get_socket_error_code(socket);
 
 }
 //------------------------------------------------------------------------------------------------------------
+void ws_log_close(int *cli)
+{
+    if (*cli < 0) return;
+
+    shutdown(*cli, 0);
+    close(*cli);
+    *cli = -1;
+}
+//------------------------------------------------------------------------------------------------------------
 int ws_create_tcp_server(u16_t prt)
 {
 int soc = -1, err = 0;
@@ -208,6 +221,84 @@ int soc = -1, err = 0;
     }
 
     return soc;
+}
+//------------------------------------------------------------------------------------------------------------
+int ws_putMsg(char *st)
+{
+int ret = -1;
+
+    if (!st) return ret;
+
+    int len = strlen(st); if (!len) return ret;
+
+    if (*(st + len - 1) == '\n') {
+        *(st + len - 1) = '\0';
+        len--;
+    }
+
+    s_ws_msg evt;
+    evt.msg = (char *)calloc(1, len + 1);
+    if (evt.msg) {
+        memcpy(evt.msg, st, len);
+        if (xQueueSend(wsq, (void *)&evt, (TickType_t)0) != pdPASS) {
+            ESP_LOGE(TAGWS, "Error while sending to msg queue");
+            free(evt.msg);
+        } else ret = 0;
+    }
+
+    return ret;
+}
+//------------------------------------------------------------------------------------------------------------
+int ws_sendMsg(int s)
+{
+s_ws_msg evt;
+int ret = 0;
+
+    if (s > 0) {
+        if (xQueueReceive(wsq, &evt, (TickType_t)0) == pdTRUE) {//data for printing present !
+            if (evt.msg != NULL) {
+                int len = strlen(evt.msg);
+                if (len) {
+                    char *tmp = (char *)calloc(1, len + 64);
+                    if (tmp) {
+                        len = sprintf(tmp, "{\"data\":\"%s\"}", evt.msg);
+                        WS_write_data(s, tmp, (size_t)len);
+                        free(tmp);
+                    }
+                }
+                free(evt.msg);
+            }
+        }
+    } else ret = -1;
+
+    return ret;
+}
+//------------------------------------------------------------------------------------------------------------
+void buf_prn_hex(char *bf, int len, bool fl)
+{
+    if ((len <= 0) || !bf) return;
+
+    char *st = (char *)calloc(1, ((len*4) + 64));
+    if (st) {
+        sprintf(st, "buf(%d): ", len);
+        for (int i = 0; i < len; i++) sprintf(st+strlen(st),"%02X ", *(unsigned char *)(bf + i));
+        print_msg(1, TAGWS, "%s\n", st);
+        free(st);
+    }
+    if (fl) {
+        if (len >= sizeof(WS_frame_header_t)) {
+            st = (char *)calloc(1, 128);
+            if (st) {
+                WS_frame_header_t *hdr = (WS_frame_header_t *)bf;
+                sprintf(st, "hdr(%d): FIN:1=%d reserved:3=%d opcode:%d=%d , mask:1=%d len:7=%d\n",
+                            sizeof(WS_frame_header_t),
+                            hdr->FIN, hdr->reserved, WS_MASK_L, hdr->opcode,
+                            hdr->mask, hdr->payload_length);
+                print_msg(1, TAGWS, st);
+                free(st);
+            }
+        }
+    }
 }
 //------------------------------------------------------------------------------------------------------------
 err_t WS_write_data(int sc, char *p_data, size_t length)
@@ -246,7 +337,7 @@ err_t WS_write_data(int sc, char *p_data, size_t length)
         if (send(sc, buf, len, 0) == len) result = ERR_OK; else result = ERR_VAL;
 
 #ifdef WS_PRN
-        buf_prn_hex(buf, len);
+        buf_prn_hex(buf, len, true);
 
         print_msg(0, NULL, "  %s: hdr: 0x%02X 0x%02X ", __func__, *(unsigned char *)(buf), *(unsigned char *)(buf+1));
         if (ofs) print_msg(0, NULL, "0x%02X 0x%02X ", *(unsigned char *)(buf+2), *(unsigned char *)(buf+3));
@@ -258,42 +349,69 @@ err_t WS_write_data(int sc, char *p_data, size_t length)
     return result;
 }
 //------------------------------------------------------------------------------------------------------------
-void do_ack(int skt, char *ibuf)
+void do_ack(int skt, char *ibuf, bool *au)
 {
 
     char *stx = (char *)calloc(1, strlen(ibuf) + 64);
     if (stx) {
-        print_msg(1, TAGWS, "Recv. data (%d bytes) from ws_client:%s\n", strlen(ibuf), ibuf);
+        print_msg(1, TAGWS, "From client : %s\n", ibuf);
         free(stx);
+    }
+    //
+    char *obuf = (char *)calloc(1, 128);
+    if (obuf) {
+        int8_t stat = -1;
+        if (*au) stat = 0;
+        int rts = sprintf(obuf, "{\"status\":%d}", stat);
+        WS_write_data(skt, obuf, (size_t)rts);
+        print_msg(1, TAGWS, "To client : %s\n", obuf);
+        free(obuf);
     }
 
 }
 //------------------------------------------------------------------------------------------------------------
-void buf_prn_hex(char *bf, int len, bool fl)
+time_t mk_hash(char *out, const char *part)
 {
-    if ((len <= 0) || !bf) return;
+#ifdef SET_MD5
+    #define hash_len 16
+    const char *mark = "MD5";
+#else
+    #if defined(SET_SHA2_256)
+        #define hash_len 32
+        const char *mark = "SHA2_256";
+        esp_sha_type sha_type = SHA2_256;
+    #elif defined(SET_SHA2_384)
+        #define hash_len 48
+        const char *mark = "SHA2_384";
+        esp_sha_type sha_type = SHA2_384;
+    #elif defined(SET_SHA2_512)
+        #define hash_len 64
+        const char *mark = "SHA2_512";
+        esp_sha_type sha_type = SHA2_512;
+    #else
+        #define hash_len 20
+        const char *mark = "SHA1";
+        esp_sha_type sha_type = SHA1;
+    #endif
+#endif
+unsigned char hash[hash_len] = {0};
+time_t ret = time(NULL);
 
-    char *st = (char *)calloc(1, ((len*4) + 64));
-    if (st) {
-        sprintf(st, "buf(%d): ", len);
-        for (int i = 0; i < len; i++) sprintf(st+strlen(st),"%02X ", *(unsigned char *)(bf + i));
-        print_msg(1, TAGWS, "%s\n", st);
-        free(st);
-    }
-    if (fl) {
-        if (len >= sizeof(WS_frame_header_t)) {
-            st = (char *)calloc(1, 128);
-            if (st) {
-                WS_frame_header_t *hdr = (WS_frame_header_t *)bf;
-                sprintf(st, "hdr(%d): FIN:1=%d reserved:3=%d opcode:%d=%d , mask:1=%d len:7=%d\n",
-                            sizeof(WS_frame_header_t),
-                            hdr->FIN, hdr->reserved, WS_MASK_L, hdr->opcode,
-                            hdr->mask, hdr->payload_length);
-                print_msg(1, TAGWS, st);
-                free(st);
-            }
-        }
-    }
+    char *ts = (char *)calloc(1, (strlen(part) << 1) + 32);
+    if (ts) {
+        sprintf(ts,"%s_%u_%s", part, (uint32_t)ret, part);
+#ifdef SET_MD5
+        mbedtls_md5((unsigned char *)ts, strlen(ts), hash);
+#else
+        esp_sha(sha_type, (const unsigned char *)ts, strlen(ts), hash);
+#endif
+        free(ts);
+
+        for (uint8_t i = 0; i < hash_len; i++) sprintf(out+strlen(out),"%02X", hash[i]);
+        print_msg(1, TAGWS, "%s hash=%s\n", mark, out);
+    } else ret = 0;
+
+    return ret;
 }
 //------------------------------------------------------------------------------------------------------------
 static void ws_server_netconn_serv(int sc)
@@ -302,9 +420,17 @@ char *p_buf = NULL;
 uint16_t i;
 char *p_payload = NULL;
 WS_frame_header_t *p_frame_hdr;
-int len = 0, total = 0;
+int len = 0, total = 0, res = 0;
 TickType_t tcikl = 0;
+bool auth = false, first = true;
+char sts[64], hash_str[130];
+uint32_t wait_auth = 0;
+uint8_t ready = 0;
+struct timeval cli_tv;
+fd_set read_Fds;
+char *uki;
 
+    wsCliRdy = false;
 
     char *p_SHA1_Inp    = heap_caps_malloc(WS_CLIENT_KEY_L + sizeof(WS_sec_conKey), MALLOC_CAP_8BIT);//allocate memory for SHA1 input
     char *p_SHA1_result = heap_caps_malloc(SHA1_RES_L, MALLOC_CAP_8BIT);//allocate memory for SHA1 result
@@ -312,7 +438,7 @@ TickType_t tcikl = 0;
 
     if (p_SHA1_Inp && p_SHA1_result && buf) {
         //receive handshake request
-        tcikl = get_tmr(WAIT_DATA_WS*_1s);
+        tcikl = get_tmr(WAIT_DATA_WS);
         while ( total < sizeof(WS_sec_conKey) ) {
             if (restart_flag) goto done;
             len = recv(sc, buf + total, BUF_SIZE - total - 1, 0);
@@ -343,51 +469,118 @@ TickType_t tcikl = 0;
                 print_msg(1, TAGWS, "Send handshake:\n");
                 print_msg(0, TAGWS, p_payload);
 #endif
-                heap_caps_free(p_payload); p_payload=NULL;
+                heap_caps_free(p_payload);
+                p_payload = NULL;
                 WS_conn = true;
+                wait_auth = 0;
+
+                ready = 0;
+                total = len = 0;
+                memset(buf, 0, BUF_SIZE);
+                tcikl = 0;
+
                 while (!restart_flag) {
-                    total = len = 0;
-                    memset(buf,0,BUF_SIZE);
-                    tcikl = get_tmr(WAIT_DATA_WS);
-                    while (total < sizeof(WS_frame_header_t)) {
-                        if (restart_flag) goto done;
-                        len = recv(sc, buf + total, BUF_SIZE - total - 1, 0);
-                        if (len > 0) {
-                            if (!total) tcikl = get_tmr(WAIT_DATA_WS);
-                            total += len;
-                        }
-                        if (total) {
-                            if (check_tmr(tcikl)) break;
+                    //
+                    if ((sc > 0) && auth) wsCliRdy = true; else wsCliRdy = false;
+                    //---  for auth begin  ---
+                    if (!auth && first) {
+                        hash_str[0] = 0;
+                        len = sprintf(sts,"{\"ts\":%u}\r\n", (uint32_t)mk_hash(hash_str, instr));
+                        if (WS_write_data(sc, sts, len)) {
+                            print_msg(1, TAGWS, "Error ws_write_data()\n");
+                        } else {
+                            print_msg(1, TAGWS, "To client : %s", sts);
+                            first = 0;
+                            wait_auth = get_tmr(timeout_auth);
                         }
                     }
-#ifdef WS_PRN
-                    buf_prn_hex(buf, sizeof(WS_frame_header_t), true);
-#endif
-                    p_frame_hdr = (WS_frame_header_t *)buf;
-                    if (p_frame_hdr->opcode == WS_OP_CLS) break;//check if clients wants to close the connection
-                    if (p_frame_hdr->payload_length <= WS_STD_LEN) {
-                        p_buf = (char *)&buf[sizeof(WS_frame_header_t)];
-                        if (p_frame_hdr->mask) {
-                            p_payload = heap_caps_malloc(p_frame_hdr->payload_length + 1, MALLOC_CAP_8BIT);
-                            if (p_payload) {
-                                //decode playload
-                                for (i = 0; i < p_frame_hdr->payload_length; i++) p_payload[i] = (p_buf + WS_MASK_L)[i] ^ p_buf[i % WS_MASK_L];
-                                p_payload[p_frame_hdr->payload_length] = 0;
+                    //
+                    cli_tv.tv_sec = 0; cli_tv.tv_usec = 50000;
+                    FD_ZERO(&read_Fds); FD_SET(sc, &read_Fds);
+                    if (select(sc + 1, &read_Fds, NULL, NULL, &cli_tv) > 0) {// watch sockets : device and broker
+                        if (FD_ISSET(sc, &read_Fds)) {// event from device socket
+                            len = recv(sc, buf + total, BUF_SIZE - total - 1, MSG_DONTWAIT);
+                            if (len > 0) {
+                                total += len;
+                            } else if (!len) {
+                                ready = 0;
+                                print_msg(1, TAGWS, "Client hangup. Bye.\n");
+                                break;
                             }
-                        } else p_payload = p_buf;//content is not masked
-                        if ((p_payload) && (p_frame_hdr->opcode == WS_OP_TXT)) do_ack(sc, p_payload);
-                        if ((p_payload) && (p_payload != p_buf)) {
-                            heap_caps_free(p_payload);
-                            p_payload = NULL;
+                            if (total >= sizeof(WS_frame_header_t)) ready = 1;
                         }
                     }
-                    vTaskDelay(10 / portTICK_RATE_MS);
+                    //
+                    if (ready && !restart_flag) {
+#ifdef WS_PRN
+                        buf_prn_hex(buf, sizeof(WS_frame_header_t), true);
+#endif
+                        p_frame_hdr = (WS_frame_header_t *)buf;
+                        if (p_frame_hdr->opcode == WS_OP_CLS) break;//check if clients wants to close the connection
+                        if (p_frame_hdr->payload_length <= WS_STD_LEN) {
+                            p_buf = (char *)&buf[sizeof(WS_frame_header_t)];
+                            if (p_frame_hdr->mask) {
+                                p_payload = heap_caps_malloc(p_frame_hdr->payload_length + 1, MALLOC_CAP_8BIT);
+                                if (p_payload) {
+                                    //decode playload
+                                    for (i = 0; i < p_frame_hdr->payload_length; i++) p_payload[i] = (p_buf + WS_MASK_L)[i] ^ p_buf[i % WS_MASK_L];
+                                    p_payload[p_frame_hdr->payload_length] = 0;
+                                }
+                            } else p_payload = p_buf;//content is not masked
+
+                            if ((p_payload) && (p_frame_hdr->opcode == WS_OP_TXT)) {
+                                //--- check auth ---
+                                if (!auth) {
+                                    uki = strstr(p_payload, auth_patt);
+                                    if (uki) {
+                                        uki += strlen(auth_patt);
+                                        if (!strncmp(uki, hash_str, strlen(hash_str))) {
+                                            auth = 1;
+                                            wait_auth = 0;
+                                            print_msg(1, TAGWS, "Access granted !\n");
+                                        }
+                                    }
+                                }
+                                //
+                                do_ack(sc, p_payload, &auth);//ack to client
+                                //
+                            }
+                            if ((p_payload) && (p_payload != p_buf)) {
+                                heap_caps_free(p_payload);
+                                p_payload = NULL;
+                            }
+                        }
+                        ready = 0;
+                        total = len = 0;
+                        memset(buf, 0, BUF_SIZE);
+                    }//if (ready)
+                    //
+                    if (!auth) {
+                        if (check_tmr(wait_auth)) {
+                            wait_auth = 0;
+                            print_msg(1, TAGWS, "Timeout wait auth (%u sec). Bye.\n", timeout_auth / 10);
+                            break;
+                        }
+                    }
+                    //
+                    if ((sc > 0) && auth) wsCliRdy = true; else wsCliRdy = false;
+                    //
+                    res = ws_sendMsg(sc);
+                    if (res < 0) {
+                        wsCliRdy = false;
+                        print_msg(1, TAGWS, "Client hangup. Bye.\n");
+                        break;
+                    } else {
+                        vTaskDelay(100 / portTICK_PERIOD_MS);
+                    }
                 }
             }
         }
     }
 
 done:
+
+    wsCliRdy = false;
 
     WS_conn = false;
     if (p_payload) heap_caps_free(p_payload);
@@ -397,16 +590,15 @@ done:
 
 }
 //------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------------------
 void ws_task(void *arg)
 {
 ws_start = 1;
 total_task++;
 
-int srv = -1, cli = -1;
+int srv = -1, wsCli = -1;
 struct sockaddr_in client_addr;
 unsigned int socklen = sizeof(client_addr);
+
 
 
     uint16_t wp = *(u16_t *)arg;
@@ -421,22 +613,22 @@ unsigned int socklen = sizeof(client_addr);
         if (!setDateTimeOK) ets_printf("[%s] Wait new web_socket client... | FreeMem %u\n", TAGWS, xPortGetFreeHeapSize());
                        else print_msg(1, TAGWS, "Wait new web_socket client... | FreeMem %u\n", xPortGetFreeHeapSize());
         while (!restart_flag) {
-            cli = accept(srv, (struct sockaddr*)&client_addr, &socklen);
-            if (cli > 0) {
+            wsCli = accept(srv, (struct sockaddr*)&client_addr, &socklen);
+            if (wsCli > 0) {
                 print_msg(1, TAGWS, "ws_client %s:%u (soc=%u) online | FreeMem %u\n",
                                 (char *)inet_ntoa(client_addr.sin_addr),
                                 htons(client_addr.sin_port),
-                                cli,
+                                wsCli,
                                 xPortGetFreeHeapSize());
-                fcntl(cli, F_SETFL, (fcntl(cli, F_GETFL, 0)) | O_NONBLOCK);
-                ws_server_netconn_serv(cli);
+                fcntl(wsCli, F_SETFL, (fcntl(wsCli, F_GETFL, 0)) | O_NONBLOCK);
+                ws_server_netconn_serv(wsCli);
                 print_msg(1, TAGWS, "Closed connection (%s:%u soc=%u) | FreeMem %u\n",
                                 (char *)inet_ntoa(client_addr.sin_addr),
                                 htons(client_addr.sin_port),
-                                cli,
+                                wsCli,
                                 xPortGetFreeHeapSize());
-                close(cli);
-                cli = -1;
+                close(wsCli);
+                wsCli = -1;
             }
         }
     } else {

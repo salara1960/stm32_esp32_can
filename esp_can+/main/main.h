@@ -182,9 +182,17 @@
 #define sntp_tzone_def  "EET-2"
 
 
-#define _100ms   1
-#define _1s     10
-#define _10s   100
+#define _100ms       1
+#define _1s    10
+#define _2s    2 * _1s
+#define _5s    5 * _1s
+#define _10s   10 * _1s
+#define _15s   15 * _1s
+#define _20s   20 * _1s
+#define _25s   25 * _1s
+#define _30s   30 * _1s
+
+
 
 
 //**************************************************************************
@@ -265,6 +273,8 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
 
 #ifdef SET_WS
     #include "ws.h"
+
+    xQueueHandle wsq;
 #endif
 
 

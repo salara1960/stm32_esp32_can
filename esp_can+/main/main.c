@@ -109,6 +109,7 @@ uint32_t get_tmr(uint32_t tm)
 //--------------------------------------------------------------------------------------
 int check_tmr(uint32_t tm)
 {
+    if (!tm) return 0;
     return (get_varta() >= tm ? 1 : 0);
 }
 //--------------------------------------------------------------------------------------
@@ -138,6 +139,9 @@ size_t len = BUF_SIZE;//1024
         }
 #ifdef SET_NET_LOG
         if (tcpCli >= 0) putMsg(st);
+#endif
+#ifdef SET_WS
+        if (wsCliRdy) ws_putMsg(st);
 #endif
         free(st);
     }
@@ -668,6 +672,8 @@ void app_main()
 
 
 #ifdef SET_WS
+    wsq = xQueueCreate(4, sizeof(s_ws_msg));//create ws queue
+
     if (xTaskCreatePinnedToCore(&ws_task, "ws_task", 4*STACK_SIZE_1K, &ws_port, 7, NULL, 0) != pdPASS) {//8//10//7
         ESP_LOGE(TAGWS, "Create ws_task failed | FreeMem %u", xPortGetFreeHeapSize());
     }
