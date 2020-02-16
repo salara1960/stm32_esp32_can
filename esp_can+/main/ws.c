@@ -2,8 +2,8 @@
 
 #ifdef SET_WS
 
-//#include "main.h"
 #include "ws.h"
+#include "js.c"
 
 
 //------------------------------------------------------------------------------------------------------------
@@ -19,27 +19,14 @@ const char WS_sec_conKey[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const char WS_srv_hs[] ="HTTP/1.1 101 Switching Protocols \r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %.*s\r\n\r\n";
 
 const char *instr = "salara";
-const char *auth_patt = "{\"auth\":\"";
-
 
 err_t WS_write_data(int sc, char *p_data, size_t length);
-//------------------------------------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------------------------------------
 
 static const unsigned char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/**
- * base64_encode - Base64 encode
- * @src: Data to be encoded
- * @len: Length of the data to be encoded
- * @out_len: Pointer to output length variable, or %NULL if not used
- * Returns: Allocated buffer of out_len bytes of encoded data,
- * or %NULL on failure
- *
- * Caller is responsible for freeing the returned buffer. Returned buffer is
- * nul terminated to make it easier to use as a C string. The nul terminator is
- * not included in out_len.
- */
+//------------------------------------------------------------------------------------------------------------
 unsigned char *base64_encode(const unsigned char *src, size_t len, size_t *out_len)
 {
 unsigned char *out, *pos;
@@ -47,128 +34,102 @@ const unsigned char *end, *in;
 size_t olen;
 int line_len;
 
-	olen = len * 4 / 3 + 4; /* 3-byte blocks to 4-byte */
-	olen += olen / 72; /* line feeds */
-	olen++; /* nul termination */
-	if (olen < len)
-		return NULL; /* integer overflow */
-	out = (unsigned char *)calloc(1, olen);
-	if (out == NULL)
-		return NULL;
+    olen = len * 4 / 3 + 4; // 3-byte blocks to 4-byte
+    olen += olen / 72; // line feeds
+    olen++; // nul termination
+    if (olen < len) return NULL; // integer overflow
 
-	end = src + len;
-	in = src;
-	pos = out;
-	line_len = 0;
-	while (end - in >= 3) {
-		*pos++ = base64_table[in[0] >> 2];
-		*pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
-		*pos++ = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
-		*pos++ = base64_table[in[2] & 0x3f];
-		in += 3;
-		line_len += 4;
-		if (line_len >= 72) {
-			*pos++ = '\n';
-			line_len = 0;
-		}
-	}
+    out = (unsigned char *)calloc(1, olen);
+    if (!out) return NULL;
 
-	if (end - in) {
-		*pos++ = base64_table[in[0] >> 2];
-		if (end - in == 1) {
-			*pos++ = base64_table[(in[0] & 0x03) << 4];
-			*pos++ = '=';
-		} else {
-			*pos++ = base64_table[((in[0] & 0x03) << 4) |
-					      (in[1] >> 4)];
-			*pos++ = base64_table[(in[1] & 0x0f) << 2];
-		}
-		*pos++ = '=';
-		line_len += 4;
-	}
+    end = src + len;
+    in = src;
+    pos = out;
+    line_len = 0;
+    while (end - in >= 3) {
+        *pos++ = base64_table[in[0] >> 2];
+        *pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+        *pos++ = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
+        *pos++ = base64_table[in[2] & 0x3f];
+        in += 3;
+        line_len += 4;
+        if (line_len >= 72) {
+            *pos++ = '\n';
+            line_len = 0;
+        }
+    }
 
-	if (line_len)
-		*pos++ = '\n';
+    if (end - in) {
+        *pos++ = base64_table[in[0] >> 2];
+        if (end - in == 1) {
+            *pos++ = base64_table[(in[0] & 0x03) << 4];
+            *pos++ = '=';
+        } else {
+            *pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+            *pos++ = base64_table[(in[1] & 0x0f) << 2];
+        }
+        *pos++ = '=';
+        line_len += 4;
+    }
 
-	*pos = '\0';
-	if (out_len)
-		*out_len = pos - out;
-	return out;
+    if (line_len) *pos++ = '\n';
+
+    *pos = '\0';
+    if (out_len) *out_len = pos - out;
+
+    return out;
 }
-
-
-/**
- * base64_decode - Base64 decode
- * @src: Data to be decoded
- * @len: Length of the data to be decoded
- * @out_len: Pointer to output length variable
- * Returns: Allocated buffer of out_len bytes of decoded data,
- * or %NULL on failure
- *
- * Caller is responsible for freeing the returned buffer.
- */
-unsigned char *base64_decode(const unsigned char *src, size_t len,
-			      size_t *out_len)
+//------------------------------------------------------------------------------------------------------------
+unsigned char *base64_decode(const unsigned char *src, size_t len, size_t *out_len)
 {
-	unsigned char dtable[256], *out, *pos, block[4], tmp;
-	size_t i, count, olen;
-	int pad = 0;
+unsigned char dtable[256], *out, *pos, block[4], tmp;
+size_t i, count, olen;
+int pad = 0;
 
-	memset(dtable, 0x80, 256);
-	for (i = 0; i < sizeof(base64_table) - 1; i++)
-		dtable[base64_table[i]] = (unsigned char) i;
-	dtable['='] = 0;
+    memset(dtable, 0x80, 256);
+    for (i = 0; i < sizeof(base64_table) - 1; i++) dtable[base64_table[i]] = (unsigned char) i;
+    dtable['='] = 0;
 
-	count = 0;
-	for (i = 0; i < len; i++) {
-		if (dtable[src[i]] != 0x80)
-			count++;
-	}
+    count = 0;
+    for (i = 0; i < len; i++) {
+        if (dtable[src[i]] != 0x80) count++;
+    }
 
-	if (count == 0 || count % 4)
-		return NULL;
+    if (count == 0 || count % 4) return NULL;
 
-	olen = count / 4 * 3;
-	pos = out = (unsigned char *)calloc(1, olen);
-	if (out == NULL)
-		return NULL;
+    olen = count / 4 * 3;
+    pos = out = (unsigned char *)calloc(1, olen);
+    if (!out) return NULL;
 
-	count = 0;
-	for (i = 0; i < len; i++) {
-		tmp = dtable[src[i]];
-		if (tmp == 0x80)
-			continue;
+    count = 0;
+    for (i = 0; i < len; i++) {
+        tmp = dtable[src[i]];
+        if (tmp == 0x80) continue;
 
-		if (src[i] == '=')
-			pad++;
-		block[count] = tmp;
-		count++;
-		if (count == 4) {
-			*pos++ = (block[0] << 2) | (block[1] >> 4);
-			*pos++ = (block[1] << 4) | (block[2] >> 2);
-			*pos++ = (block[2] << 6) | block[3];
-			count = 0;
-			if (pad) {
-				if (pad == 1)
-					pos--;
-				else if (pad == 2)
-					pos -= 2;
-				else {
-					/* Invalid padding */
-					free(out);
-					return NULL;
-				}
-				break;
-			}
-		}
-	}
+        if (src[i] == '=') pad++;
+        block[count] = tmp;
+        count++;
+        if (count == 4) {
+            *pos++ = (block[0] << 2) | (block[1] >> 4);
+            *pos++ = (block[1] << 4) | (block[2] >> 2);
+            *pos++ = (block[2] << 6) | block[3];
+            count = 0;
+            if (pad) {
+                if (pad == 1) pos--;
+                else if (pad == 2) pos -= 2;
+                else {
+                    // Invalid padding
+                    free(out);
+                    return NULL;
+                }
+                break;
+            }
+        }
+    }
 
-	*out_len = pos - out;
-	return out;
+    *out_len = pos - out;
+    return out;
 }
-
-
-
 //------------------------------------------------------------------------------------------------------------
 int ws_get_socket_error_code(int socket)
 {
@@ -188,19 +149,9 @@ void ws_show_socket_error_reason(int socket)
 int err = ws_get_socket_error_code(socket);
 
     print_msg(1, TAGWS, "Socket %d error %d %s\n", socket, err, strerror(err));
-
 }
 //------------------------------------------------------------------------------------------------------------
-void ws_log_close(int *cli)
-{
-    if (*cli < 0) return;
-
-    shutdown(*cli, 0);
-    close(*cli);
-    *cli = -1;
-}
-//------------------------------------------------------------------------------------------------------------
-int ws_create_tcp_server(u16_t prt)
+int ws_create_tcp_server(uint16_t prt)
 {
 int soc = -1, err = 0;
 
@@ -211,7 +162,7 @@ int soc = -1, err = 0;
         server_addr.sin_port = htons(prt);
         server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
         if (!bind(soc, (struct sockaddr*)&server_addr, sizeof(server_addr))) {
-            if (listen(soc, 1)) err = 1;//(soc , 5)
+            if (listen(soc, 1)) err = 1;
         } else err = 1;
 
         if (err) {
@@ -229,9 +180,10 @@ int ret = -1;
 
     if (!st) return ret;
 
-    int len = strlen(st); if (!len) return ret;
+    int len = strlen(st);
+    if (!len) return ret;
 
-    if (*(st + len - 1) == '\n') {
+    if (*(st + len - 1) == '\n') {//cat last 0x0A byte
         *(st + len - 1) = '\0';
         len--;
     }
@@ -241,7 +193,7 @@ int ret = -1;
     if (evt.msg) {
         memcpy(evt.msg, st, len);
         if (xQueueSend(wsq, (void *)&evt, (TickType_t)0) != pdPASS) {
-            ESP_LOGE(TAGWS, "Error while sending to msg queue");
+            ESP_LOGE(TAGWS, "Error while sending to ws_msg_queue");
             free(evt.msg);
         } else ret = 0;
     }
@@ -255,16 +207,11 @@ s_ws_msg evt;
 int ret = 0;
 
     if (s > 0) {
-        if (xQueueReceive(wsq, &evt, (TickType_t)0) == pdTRUE) {//data for printing present !
-            if (evt.msg != NULL) {
+        if (xQueueReceive(wsq, &evt, (TickType_t)0) == pdTRUE) {//data for sending to ws_client present !
+            if (evt.msg) {
                 int len = strlen(evt.msg);
                 if (len) {
-                    char *tmp = (char *)calloc(1, len + 64);
-                    if (tmp) {
-                        len = sprintf(tmp, "{\"data\":\"%s\"}", evt.msg);
-                        WS_write_data(s, tmp, (size_t)len);
-                        free(tmp);
-                    }
+                    WS_write_data(s, evt.msg, len);
                 }
                 free(evt.msg);
             }
@@ -339,35 +286,14 @@ err_t WS_write_data(int sc, char *p_data, size_t length)
 #ifdef WS_PRN
         buf_prn_hex(buf, len, true);
 
-        print_msg(0, NULL, "  %s: hdr: 0x%02X 0x%02X ", __func__, *(unsigned char *)(buf), *(unsigned char *)(buf+1));
-        if (ofs) print_msg(0, NULL, "0x%02X 0x%02X ", *(unsigned char *)(buf+2), *(unsigned char *)(buf+3));
+        print_msg(0, NULL, "  %s: hdr: 0x%02X 0x%02X ", __func__, *(unsigned char *)buf, *(unsigned char *)(buf + 1));
+        if (ofs) print_msg(0, NULL, "0x%02X 0x%02X ", *(unsigned char *)(buf + 2), *(unsigned char *)(buf + 3));
         print_msg(0, NULL, "data: %s\n", p_data);
 #endif
         free(buf);
     }
 
     return result;
-}
-//------------------------------------------------------------------------------------------------------------
-void do_ack(int skt, char *ibuf, bool *au)
-{
-
-    char *stx = (char *)calloc(1, strlen(ibuf) + 64);
-    if (stx) {
-        print_msg(1, TAGWS, "From client : %s\n", ibuf);
-        free(stx);
-    }
-    //
-    char *obuf = (char *)calloc(1, 128);
-    if (obuf) {
-        int8_t stat = -1;
-        if (*au) stat = 0;
-        int rts = sprintf(obuf, "{\"status\":%d}", stat);
-        WS_write_data(skt, obuf, (size_t)rts);
-        print_msg(1, TAGWS, "To client : %s\n", obuf);
-        free(obuf);
-    }
-
 }
 //------------------------------------------------------------------------------------------------------------
 time_t mk_hash(char *out, const char *part)
@@ -414,21 +340,21 @@ time_t ret = time(NULL);
     return ret;
 }
 //------------------------------------------------------------------------------------------------------------
-static void ws_server_netconn_serv(int sc)
+uint8_t ws_server(int sc)
 {
 char *p_buf = NULL;
-uint16_t i;
 char *p_payload = NULL;
 WS_frame_header_t *p_frame_hdr;
-int len = 0, total = 0, res = 0;
+char sts[64], hash_str[130];
+int len = 0, total = 0, res = 0, rtr, ictrl = -1, sctrl = -1;
 TickType_t tcikl = 0;
 bool auth = false, first = true;
-char sts[64], hash_str[130];
 uint32_t wait_auth = 0;
-uint8_t ready = 0;
+uint16_t i;
+uint8_t ready = 0, eot = 0;
 struct timeval cli_tv;
 fd_set read_Fds;
-char *uki;
+
 
     wsCliRdy = false;
 
@@ -438,7 +364,7 @@ char *uki;
 
     if (p_SHA1_Inp && p_SHA1_result && buf) {
         //receive handshake request
-        tcikl = get_tmr(WAIT_DATA_WS);
+        tcikl = get_tmr(WAIT_DATA_WS);//set timer to 5 sec
         while ( total < sizeof(WS_sec_conKey) ) {
             if (restart_flag) goto done;
             len = recv(sc, buf + total, BUF_SIZE - total - 1, 0);
@@ -473,11 +399,10 @@ char *uki;
                 p_payload = NULL;
                 WS_conn = true;
                 wait_auth = 0;
-
                 ready = 0;
                 total = len = 0;
-                memset(buf, 0, BUF_SIZE);
                 tcikl = 0;
+                memset(buf, 0, BUF_SIZE);
 
                 while (!restart_flag) {
                     //
@@ -497,13 +422,12 @@ char *uki;
                     //
                     cli_tv.tv_sec = 0; cli_tv.tv_usec = 50000;
                     FD_ZERO(&read_Fds); FD_SET(sc, &read_Fds);
-                    if (select(sc + 1, &read_Fds, NULL, NULL, &cli_tv) > 0) {// watch sockets : device and broker
-                        if (FD_ISSET(sc, &read_Fds)) {// event from device socket
+                    if (select(sc + 1, &read_Fds, NULL, NULL, &cli_tv) > 0) {// watch client socket
+                        if (FD_ISSET(sc, &read_Fds)) {// event from client socket
                             len = recv(sc, buf + total, BUF_SIZE - total - 1, MSG_DONTWAIT);
                             if (len > 0) {
                                 total += len;
                             } else if (!len) {
-                                ready = 0;
                                 print_msg(1, TAGWS, "Client hangup. Bye.\n");
                                 break;
                             }
@@ -529,20 +453,32 @@ char *uki;
                             } else p_payload = p_buf;//content is not masked
 
                             if ((p_payload) && (p_frame_hdr->opcode == WS_OP_TXT)) {
-                                //--- check auth ---
-                                if (!auth) {
-                                    uki = strstr(p_payload, auth_patt);
-                                    if (uki) {
-                                        uki += strlen(auth_patt);
-                                        if (!strncmp(uki, hash_str, strlen(hash_str))) {
-                                            auth = 1;
-                                            wait_auth = 0;
-                                            print_msg(1, TAGWS, "Access granted !\n");
-                                        }
+                                print_msg(1, TAGWS, "From client : %s\n", p_payload);
+                                //-----------------     Check ctrl's    ------------------------
+                                eot = 0;
+                                rtr = parser_json_str(p_payload, &auth, hash_str, &eot);
+                                ictrl = rtr & 0xffff;//command
+                                sctrl = rtr >> 16;//sub_command for 'get' command
+                                if (auth) {
+                                    if (ictrl == iCTRL_AUTH) {
+                                        wait_auth = 0;
+                                        print_msg(1, TAGWS, "Access granted !\n");
+#ifdef UDP_SEND_BCAST
+                                        if (udp_start) udp_flag = 0;
+#endif
                                     }
                                 }
                                 //
-                                do_ack(sc, p_payload, &auth);//ack to client
+                                char *obuf = (char *)calloc(1, BUF_SIZE);
+                                if (obuf) {
+                                    rtr = mkAck(obuf, ictrl, sctrl, &auth);
+                                    if ((sc > 0) && auth) wsCliRdy = true; else wsCliRdy = false;
+                                    if (rtr > 0) {
+                                    //    WS_write_data(sc, obuf, (size_t)rtr);
+                                        print_msg(1, TAGWS, "To client : %s\n", obuf);
+                                    }
+                                    free(obuf);
+                                }
                                 //
                             }
                             if ((p_payload) && (p_payload != p_buf)) {
@@ -573,6 +509,7 @@ char *uki;
                     } else {
                         vTaskDelay(100 / portTICK_PERIOD_MS);
                     }
+                    if (eot) break;
                 }
             }
         }
@@ -581,20 +518,20 @@ char *uki;
 done:
 
     wsCliRdy = false;
-
     WS_conn = false;
     if (p_payload) heap_caps_free(p_payload);
     if (buf) free(buf);
     if (p_SHA1_Inp) heap_caps_free(p_SHA1_Inp);
     if (p_SHA1_result) heap_caps_free(p_SHA1_result);
 
+    return eot;
 }
 //------------------------------------------------------------------------------------------------------------
 void ws_task(void *arg)
 {
-ws_start = 1;
 total_task++;
-
+ws_start = 1;
+uint8_t rst = 0;
 int srv = -1, wsCli = -1;
 struct sockaddr_in client_addr;
 unsigned int socklen = sizeof(client_addr);
@@ -608,10 +545,12 @@ unsigned int socklen = sizeof(client_addr);
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
 
     srv = ws_create_tcp_server(wp);
-    if (srv >= 0) {
+    if (srv > 0) {
         fcntl(srv, F_SETFL, (fcntl(srv, F_GETFL, 0)) | O_NONBLOCK);
+
         if (!setDateTimeOK) ets_printf("[%s] Wait new web_socket client... | FreeMem %u\n", TAGWS, xPortGetFreeHeapSize());
                        else print_msg(1, TAGWS, "Wait new web_socket client... | FreeMem %u\n", xPortGetFreeHeapSize());
+
         while (!restart_flag) {
             wsCli = accept(srv, (struct sockaddr*)&client_addr, &socklen);
             if (wsCli > 0) {
@@ -621,7 +560,9 @@ unsigned int socklen = sizeof(client_addr);
                                 wsCli,
                                 xPortGetFreeHeapSize());
                 fcntl(wsCli, F_SETFL, (fcntl(wsCli, F_GETFL, 0)) | O_NONBLOCK);
-                ws_server_netconn_serv(wsCli);
+
+                rst = ws_server(wsCli);
+
                 print_msg(1, TAGWS, "Closed connection (%s:%u soc=%u) | FreeMem %u\n",
                                 (char *)inet_ntoa(client_addr.sin_addr),
                                 htons(client_addr.sin_port),
@@ -629,14 +570,16 @@ unsigned int socklen = sizeof(client_addr);
                                 xPortGetFreeHeapSize());
                 close(wsCli);
                 wsCli = -1;
+                if (rst) break;
             }
         }
     } else {
         print_msg(1, TAGWS, "ERROR create_tcp_server(%u)=%d\n", wp, srv);
     }
 
-
     print_msg(1, TAGWS, "WebSocket task stop | FreeMem %u\n", xPortGetFreeHeapSize());
+
+    if (rst) restart_flag = 1;
 
     if (total_task) total_task--;
     ws_start = 0;

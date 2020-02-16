@@ -269,6 +269,7 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
 #ifdef SET_CAN_DEV
     #include "can.h"
     extern can_mode_t canMode;
+    extern uint16_t canSpeed;
 #endif
 
 #ifdef SET_WS

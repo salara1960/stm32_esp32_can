@@ -5,30 +5,27 @@
 
 #ifdef SET_WS
 
-#include "main.h"
-
     //#define WS_PRN
+    #define SET_MD5
 
     #include "main.h"
+
     #include "esp_heap_caps.h"
     #include "esp32/sha.h"
-
-
     #include "mbedtls/md5.h"
-    #define SET_MD5
+
     #ifndef SET_MD5
         #define SET_SHA1
         #undef SET_SHA2_256
         #undef SET_SHA2_384
         #undef SET_SHA2_512
     #endif
-    #define timeout_auth   _30s // sec
+    #define timeout_auth   _30s
 
 
-    #define WS_MASK_L            0x4 // \brief Length of MASK field in WebSocket Header
-
+    #define WS_MASK_L            0x4    // \brief Length of MASK field in WebSocket Header
     #define WS_PORT             8899
-    #define WAIT_DATA_WS          _10s //5000
+    #define WAIT_DATA_WS         _5s    //5000
     #define WS_CLIENT_KEY_L       24    //< \brief Length of the Client Key
     #define SHA1_RES_L            20    //< \brief SHA1 result
     #define WS_STD_LEN           125    //< \brief Maximum Length of standard length frames //125

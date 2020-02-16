@@ -11,6 +11,7 @@ uint8_t restart_flag = 0;
 uint8_t total_task = 0;
 uint8_t last_cmd = 255;
 
+static const char *TAG = "MAIN";
 static const char *TAGN = "NVS";
 static const char *TAGT = "VFS";
 static const char *TAGW = "WIFI";
@@ -734,12 +735,20 @@ void app_main()
     can_driver_uninstall();
 #endif
 
-/*
+    uint8_t cnt = 30;
+    print_msg(1, TAG, "Waiting for all task closed...%d sec.\n", cnt/10);
+    while (total_task) {
+        cnt--; if (!cnt) break;
+        vTaskDelay(100 / portTICK_RATE_MS);
+    }
+    print_msg(1, TAG, "DONE (%d). Total unclosed task %d\n", cnt, total_task);
+
     if (macs) free(macs);
-    ets_printf("[%s] Waiting wifi stop...\n\n", TAG);
+
     vTaskDelay(1000 / portTICK_RATE_MS);
+
     ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_deinit());
+
     esp_restart();
-*/
 }
