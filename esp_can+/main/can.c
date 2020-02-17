@@ -11,6 +11,66 @@ const char *TAGCAN = "eCAN";
 const char *canModeName[] = {"CAN_MODE_NORMAL", "CAN_MODE_NO_ACK", "CAN_MODE_LISTEN_ONLY", "UNKNOWN"};
 
 //------------------------------------------------------------------------------------------------------------
+/*
+#define CAN_TIMING_CONFIG_25KBITS()  {.brp = 128, .tseg_1 = 16, .tseg_2 = 8, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_50KBITS()  {.brp = 80,  .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_100KBITS() {.brp = 40,  .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_125KBITS() {.brp = 32,  .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_250KBITS() {.brp = 16,  .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_500KBITS() {.brp = 8,   .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_800KBITS() {.brp = 4,   .tseg_1 = 16, .tseg_2 = 8, .sjw = 3, .triple_sampling = false}
+#define CAN_TIMING_CONFIG_1MBITS()   {.brp = 4,   .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
+*/
+void selectCanSpeed(can_timing_config_t *tc, uint16_t *spd)
+{
+
+    tc->triple_sampling = false;
+    tc->sjw = 3;
+    switch (*spd) {
+        case 25://25KBITS
+            tc->brp = 128;
+            tc->tseg_1 = 16;
+            tc->tseg_2 = 8;
+        break;
+        case 50://50KBITS
+            tc->brp = 80;
+            tc->tseg_1 = 15;
+            tc->tseg_2 = 4;
+        break;
+        case 100://100KBITS
+            tc->brp = 40;
+            tc->tseg_1 = 15;
+            tc->tseg_2 = 4;
+        break;
+        case 250://250KBITS
+            tc->brp = 16;
+            tc->tseg_1 = 15;
+            tc->tseg_2 = 4;
+        break;
+        case 500://500KBITS
+            tc->brp = 8;
+            tc->tseg_1 = 15;
+            tc->tseg_2 = 4;
+        break;
+        case 800://800KBITS
+            tc->brp = 4;
+            tc->tseg_1 = 16;
+            tc->tseg_2 = 8;
+        break;
+        case 1000://1000KBITS
+            tc->brp = 4;
+            tc->tseg_1 = 15;
+            tc->tseg_2 = 4;
+        break;
+            default : {//125KBITS
+                tc->brp = 32;
+                tc->tseg_1 = 15;
+                tc->tseg_2 = 4;
+                *spd = 125;
+            }
+    }
+}
+//------------------------------------------------------------------------------------------------------------
 
 static char *canErrStr(esp_err_t code)
 {

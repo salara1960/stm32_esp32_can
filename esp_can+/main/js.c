@@ -188,6 +188,7 @@ int k, i, val_bin = -1;
                                     if (val) k = atoi(val); else if (val_bin != -1) k = val_bin;
                                     if (k > 0) {
                                         canSpeed = (uint16_t)k;
+                                        save_param(PARAM_CAN_SPEED, (void *)&canSpeed, sizeof(uint16_t));
                                         yes = 0;
                                     }
                                 }

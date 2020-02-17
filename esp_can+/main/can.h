@@ -25,6 +25,7 @@
 
     extern const char *TAGCAN;
 
+    extern void selectCanSpeed(can_timing_config_t *tc, uint16_t *spd);
     extern void can_task(void *arg);
 #endif
 

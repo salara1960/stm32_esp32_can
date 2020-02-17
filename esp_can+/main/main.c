@@ -11,6 +11,7 @@ uint8_t restart_flag = 0;
 uint8_t total_task = 0;
 uint8_t last_cmd = 255;
 
+const uint32_t clkBaseKHz = 80000;
 static const char *TAG = "MAIN";
 static const char *TAGN = "NVS";
 static const char *TAGT = "VFS";
@@ -643,12 +644,15 @@ void app_main()
 
 
 #ifdef SET_CAN_DEV
+    // Set filter config
     static const can_filter_config_t f_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
 
-    //{.brp = 32, .tseg_1 = 15, .tseg_2 = 4, .sjw = 3, .triple_sampling = false}
-    static const can_timing_config_t t_config = CAN_TIMING_CONFIG_125KBITS();
-    uint32_t cspeed = 80000 / t_config.brp / (1 + t_config.tseg_1 + t_config.tseg_2);//in KHz
+    // Set timing config
+    can_timing_config_t t_config;
+    selectCanSpeed(&t_config, &canSpeed);//default speed = 125KBITS
+    uint32_t cspeed = clkBaseKHz / t_config.brp / (1 + t_config.tseg_1 + t_config.tseg_2);//in KHz
 
+    // Set global config
     static can_general_config_t g_config = CAN_GENERAL_CONFIG_DEFAULT(TX_GPIO_NUM, RX_GPIO_NUM, CAN_MODE_NO_ACK);
     if (canMode != g_config.mode) g_config.mode = canMode;
 
