@@ -395,17 +395,18 @@ static void MX_CAN_Init(void)
 
 	if (HAL_GPIO_ReadPin(CAN_LOOP_GPIO_Port, CAN_LOOP_Pin) == GPIO_PIN_RESET) CanMode = CAN_MODE_LOOPBACK;//0
 	//hcan.Init.Mode = can_mode;//default CAN_MODE_NORMAL -> if CAN_LOOP_Pin == (GPIO_PIN_SET)1
-	// speed = 36MHz / 12 /(3+2+1) = 0.5 MHz
-	// 36/24/(3+2+1) = 0.25MHz = 250KHz
-    // 36/48/(3+2+1) = 0.125MHz = 125KHz
+	// 36000 /12 /(3+2+1) = 500 KHz
+    // 36000 /48 /(3+2+1) = 125KHz
+	// 36000 /18 /(15+4+1) = 100KHz
+
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 48;
+  hcan.Init.Prescaler = 12;//24;//18;//48;
   hcan.Init.Mode = CanMode;//CAN_MODE_NORMAL;
-  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
+  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;//CAN_SJW_3TQ;//CAN_SJW_1TQ
+  hcan.Init.TimeSeg1 = CAN_BS1_3TQ;//CAN_BS1_16TQ;//CAN_BS1_3TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;//CAN_BS2_8TQ;//CAN_BS2_2TQ
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
@@ -418,14 +419,11 @@ static void MX_CAN_Init(void)
   }
   /* USER CODE BEGIN CAN_Init 2 */
 
-//  uint32_t t1 = hcan.Init.TimeSeg1; t1 >>= 16; t1 &= 3; t1++;
-//  uint32_t t2 = hcan.Init.TimeSeg2; t2 >>= 16; t2 &= 3; t2++;
-  can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);
+  can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);//500KHz
+  //can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);//250KHz
+  //can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);//125KHz
+  //can_speed = (36000 / hcan.Init.Prescaler) / (1 + 15 + 4);//100KHz
 
-
-//  uint32_t t1 = (hcan.Init.TimeSeg1 >> 16) + 1;
-//  uint32_t t2 = (hcan.Init.TimeSeg2 >> 16) + 1;
-//  can_speed = 36000 / hcan.Init.Prescaler / (1 + t1 + t2);
 
   /* Configure the CAN Filter */
   sFilterConfig.FilterBank = 0;

@@ -43,7 +43,7 @@ esp32_Slave:
 ```
 * stm32_Master:
 
-        ----- Start default task (mode=CAN_MODE_NORMAL speed=125 KHz) -----
+        ----- Start default task (mode=CAN_MODE_NORMAL speed=500 KHz) -----
 000.00:00:10 [sCAN] Id=0x321 #1, Vcc=3.260 Time=10 TX[8]= 0A 00 00 00 03 00 04 01
 000.00:00:20 [sCAN] Id=0x321 #2, Vcc=3.252 Time=20 TX[8]= 14 00 00 00 03 00 FC 00
 000.00:00:30 [sCAN] Id=0x321 #3, Vcc=3.254 Time=30 TX[8]= 1E 00 00 00 03 00 FE 00
@@ -57,54 +57,51 @@ esp32_Slave:
 
 * esp32_Slave:
 
-App version 0.5 (16.02.2020) | MAC 30:ae:a4:05:58:bc | SDK Version v4.1-dev-2196-g64654c0 | FreeMem 277040
-[VFS] Started timer with period 100 ms, time since boot: 2029022/0
+App version 0.6 (17.02.2020) | MAC 30:ae:a4:05:58:bc | SDK Version v4.1-dev-2196-g64654c0 | FreeMem 277040
+[VFS] Started timer with period 100 ms, time since boot: 2029061/0
 [VFS] DEVICE_ID='A40558BC'
 [VFS] SNTP_SERVER 'pool.ntp.org' TIME_ZONE 'EET-2'
 [VFS] WIFI_MODE (1): STA
 [VFS] WIFI_STA_PARAM: 'ssid:password'
-[VFS] CAN_SPEED: 125 KHz
+[VFS] CAN_SPEED: 500 KHz
 [VFS] WS_PORT: 8899
 [WIFI] WIFI_MODE - STA: 'ssid':'password'
 [NTP] Start sntp_client task | FreeMem 240148
-[WIFI] Connected to AP 'ssid' auth(3):'AUTH_WPA2_PSK' chan:1 rssi:-28
-[LOG] Start NetLogServer task (port=8008)| FreeMem 235044
-[eCAN] Start can_task with mode='CAN_MODE_NORMAL'(0) speed=125 KHz | FreeMem 230120
-[WS] Start WebSocket task (port=8899)| FreeMem 225568
-[WIFI] Local ip_addr : 192.168.0.102
+[WIFI] Connected to AP 'ssid' auth(3):'AUTH_WPA2_PSK' chan:1 rssi:-40
+[LOG] Start NetLogServer task (port=8008)| FreeMem 235040
+[eCAN] Start can_task with mode='CAN_MODE_NORMAL'(0) speed=500 KHz | FreeMem 230116
+[WS] Start WebSocket task (port=8899)| FreeMem 225564
+[WIFI] Local ip_addr : 192.168.0.103
 [NTP] Getting time from SNTP server 'pool.ntp.org'.
-[LOG] Wait new log_client... | FreeMem 224268
-[WS] Wait new web_socket client... | FreeMem 224172
-16.02 21:31:24 [eCAN] Id=0x321 #1 Vcc=3.238 Time=780 RX[8]= 0C 03 00 00 03 00 EE 00
-[NTP] The current date/time is: Sun Feb 16 23:31:24 2020 EET-2
-[NTP] Stop sntp_client task | FreeMem 223816
-16.02 23:31:34 [eCAN] Id=0x321 #2 Vcc=3.260 Time=790 RX[8]= 16 03 00 00 03 00 04 01
-16.02 23:31:41 [WS] ws_client 192.168.0.101:33478 (soc=56) online | FreeMem 222508
-16.02 23:31:41 [WS] MD5 hash=9D392FCBD40738C9998132BDDA68E24D
-16.02 23:31:41 [WS] To client : {"ts":1581888701}
-16.02 23:31:44 [eCAN] Id=0x321 #3 Vcc=3.248 Time=800 RX[8]= 20 03 00 00 03 00 F8 00
-16.02 23:31:51 [WS] From client : {"auth":"9D392FCBD40738C9998132BDDA68E24D"}
-16.02 23:31:51 [WS] Access granted !
-16.02 23:31:51 [WS] To client : {"DevID":"A40558BC","Time":1581888711,"FreeMem":223448}
-16.02 23:31:54 [eCAN] Id=0x321 #4 Vcc=3.251 Time=810 RX[8]= 2A 03 00 00 03 00 FB 00
-16.02 23:32:02 [WS] From client : {"get":"version"}
-16.02 23:32:02 [WS] To client : {"DevID":"A40558BC","Time":1581888722,"FreeMem":223416,"version":"0.5 (16.02.2020)"}
-16.02 23:32:04 [eCAN] Id=0x321 #5 Vcc=3.254 Time=820 RX[8]= 34 03 00 00 03 00 FE 00
-16.02 23:32:14 [eCAN] Id=0x321 #6 Vcc=3.254 Time=830 RX[8]= 3E 03 00 00 03 00 FE 00
-16.02 23:32:19 [WS] From client : {"get":"status"}
-16.02 23:32:19 [WS] To client : {"DevID":"A40558BC","Time":1581888739,"FreeMem":223416}
-16.02 23:32:24 [eCAN] Id=0x321 #7 Vcc=3.254 Time=840 RX[8]= 48 03 00 00 03 00 FE 00
-16.02 23:32:30 [WS] From client : {"get":"can_speed"}
-16.02 23:32:30 [WS] To client : {"DevID":"A40558BC","Time":1581888750,"FreeMem":223412,"can_speed":125}
-16.02 23:32:34 [eCAN] Id=0x321 #8 Vcc=3.254 Time=850 RX[8]= 52 03 00 00 03 00 FE 00
-16.02 23:32:39 [WS] From client : {"get":"can"}
-16.02 23:32:39 [WS] To client : {"DevID":"A40558BC","Time":1581888759,"FreeMem":223420}
-16.02 23:32:44 [eCAN] Id=0x321 #9 Vcc=3.254 Time=860 RX[8]= 5C 03 00 00 03 00 FE 00
-16.02 23:32:53 [WS] Closed connection (192.168.0.101:33478 soc=56) | FreeMem 225644
-16.02 23:32:54 [eCAN] Id=0x321 #10 Vcc=3.254 Time=870 RX[8]= 66 03 00 00 03 00 FE 00
-16.02 23:33:04 [eCAN] Id=0x321 #11 Vcc=3.254 Time=880 RX[8]= 70 03 00 00 03 00 FE 00
-16.02 23:33:14 [eCAN] Id=0x321 #12 Vcc=3.249 Time=890 RX[8]= 7A 03 00 00 03 00 F9 00
-16.02 23:33:24 [eCAN] Id=0x321 #13 Vcc=3.253 Time=900 RX[8]= 84 03 00 00 03 00 FD 00
-16.02 23:33:34 [eCAN] Id=0x321 #14 Vcc=3.254 Time=910 RX[8]= 8E 03 00 00 03 00 FE 00
+[LOG] Wait new log_client... | FreeMem 224264
+[WS] Wait new web_socket client... | FreeMem 224168
+[NTP] The current date/time is: Mon Feb 17 13:53:14 2020 EET-2
+[NTP] Stop sntp_client task | FreeMem 224228
+17.02 13:53:16 [eCAN] Id=0x321 #1 Vcc=3.266 Time=900 RX[8]= 84 03 00 00 03 00 0A 01
+17.02 13:53:26 [eCAN] Id=0x321 #2 Vcc=3.254 Time=910 RX[8]= 8E 03 00 00 03 00 FE 00
+17.02 13:53:36 [eCAN] Id=0x321 #3 Vcc=3.254 Time=920 RX[8]= 98 03 00 00 03 00 FE 00
+17.02 13:53:41 [WS] ws_client 192.168.0.101:33196 (soc=56) online | FreeMem 222544
+17.02 13:53:41 [WS] MD5 hash=816FDB6C2EB48AC0A9678F77D44D9517
+17.02 13:53:41 [WS] To client : {"ts":1581940421}
+17.02 13:53:46 [eCAN] Id=0x321 #4 Vcc=3.254 Time=930 RX[8]= A2 03 00 00 03 00 FE 00
+17.02 13:53:50 [WS] From client : {"auth":"816FDB6C2EB48AC0A9678F77D44D9517"}
+17.02 13:53:50 [WS] Access granted !
+17.02 13:53:50 [WS] To client : {"DevID":"A40558BC","Time":1581940430,"FreeMem":223504}
+17.02 13:53:56 [eCAN] Id=0x321 #5 Vcc=3.273 Time=940 RX[8]= AC 03 00 00 03 00 11 01
+17.02 13:54:06 [eCAN] Id=0x321 #6 Vcc=3.253 Time=950 RX[8]= B6 03 00 00 03 00 FD 00
+17.02 13:54:07 [WS] From client : {"get":"sntp_zone"}
+17.02 13:54:07 [WS] To client : {"DevID":"A40558BC","Time":1581940447,"FreeMem":223468}
+17.02 13:54:16 [eCAN] Id=0x321 #7 Vcc=3.247 Time=960 RX[8]= C0 03 00 00 03 00 F7 00
+17.02 13:54:19 [WS] From client : {"get":"time_zone"}
+17.02 13:54:19 [WS] To client : {"DevID":"A40558BC","Time":1581940459,"FreeMem":223468,"time_zone":"EET-2"}
+17.02 13:54:26 [eCAN] Id=0x321 #8 Vcc=3.254 Time=970 RX[8]= CA 03 00 00 03 00 FE 00
+17.02 13:54:31 [WS] From client : {"get":"can_speed"}
+17.02 13:54:31 [WS] To client : {"DevID":"A40558BC","Time":1581940471,"FreeMem":223468,"can_speed":500}
+17.02 13:54:36 [eCAN] Id=0x321 #9 Vcc=3.241 Time=980 RX[8]= D4 03 00 00 03 00 F1 00
+17.02 13:54:46 [eCAN] Id=0x321 #10 Vcc=3.254 Time=990 RX[8]= DE 03 00 00 03 00 FE 00
+17.02 13:54:54 [WS] Closed connection (192.168.0.101:33196 soc=56) | FreeMem 225704
+17.02 13:54:56 [eCAN] Id=0x321 #11 Vcc=3.247 Time=1000 RX[8]= E8 03 00 00 03 00 F7 00
+17.02 13:55:06 [eCAN] Id=0x321 #12 Vcc=3.250 Time=1010 RX[8]= F2 03 00 00 03 00 FA 00
+17.02 13:55:16 [eCAN] Id=0x321 #13 Vcc=3.254 Time=1020 RX[8]= FC 03 00 00 03 00 FE 00
 ...
 ```
