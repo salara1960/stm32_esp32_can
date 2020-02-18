@@ -23,11 +23,6 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QMessageBox>
-#include <QPixmap>
-//#include <QSystemTrayIcon>
-//#include <QCloseEvent>
-//#include <QMouseEvent>
-
 #include <QtWebSockets/QWebSocket>
 
 
@@ -73,16 +68,10 @@ private slots:
     void on_error(QString &er);
     void onTextMessageReceived(QString message);
 
-signals:
-    void sigAbout();
-    void sigConn();
-    void sigDisc();
-
 private:
     Ui::MainWindow *ui;
     int tmr_sec, MyError;
     QWebSocket wsCli;
-    //QUrl wsUrl;
     QString url;
 };
 

@@ -42,19 +42,12 @@ MainWindow::MainWindow(QWidget *parent, QString *srv) : QMainWindow(parent), ui(
         throw TheError(MyError);
     }
 
-    connect(this, SIGNAL(sigWrite(QByteArray &)), this, SLOT(slotWrite(QByteArray &)));
-
     //Menu
     connect(ui->actionVERSION,    &QAction::triggered, this, &MainWindow::About);
     connect(ui->actionCONNECT,    &QAction::triggered, this, &MainWindow::on_connect);
     connect(ui->actionDISCONNECT, &QAction::triggered, this, &MainWindow::on_disconnect);
     connect(ui->actionCLEAR,      &QAction::triggered, this, &MainWindow::clrLog);
     connect(ui->actionExit, &QAction::triggered, this, &QApplication::quit);
-
-
-    connect(ui->answer, SIGNAL(pressed), this, SLOT(sendData()));
-    connect(this, &MainWindow::sigConn, this, &MainWindow::on_connect);
-    connect(this, &MainWindow::sigDisc, this, &MainWindow::on_disconnect);
 
     ui->actionCONNECT->setEnabled(true);
     ui->actionDISCONNECT->setEnabled(false);
