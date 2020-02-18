@@ -2,23 +2,20 @@
 #include "ui_mainwindow.h"
 
 
-
 //******************************************************************************************************
 //
 //       web socket Client
 //
 //******************************************************************************************************
 
-
 //const QString vers = "0.1";//18.02.2020
-const QString vers = "0.2";//18.02.2020
+//const QString vers = "0.2";//18.02.2020
+const QString vers = "0.3";//18.02.2020
 
 
 const QString title = "webSocketClient";
 
 const QString main_pic    = "png/linux.png";
-const QString con_pic     = "png/conn.png";
-const QString dis_pic     = "png/dis.png";
 const QString salara_pic  = "png/salara.png";
 
 
@@ -34,7 +31,7 @@ MainWindow::MainWindow(QWidget *parent, QString *srv) : QMainWindow(parent), ui(
     MyError = 0;
 
     this->setWindowIcon(QIcon(main_pic));
-    this->setWindowOpacity(0.95);//set the level of transparency
+    this->setWindowOpacity(0.93);//set the level of transparency
 
     tmr_sec = startTimer(1000);// 1 sec.
     if (tmr_sec <= 0) {
@@ -74,7 +71,7 @@ void MainWindow::clrLog()
 //--------------------------------------------------------------------------------
 void MainWindow::About()
 {
-    QString st ="\nwsClient version " + vers + "\nused : Qt v.";
+    QString st ="\nwsClient version " + vers + "\nused Qt v.";
     st.append(QT_VERSION_STR);
 
     QMessageBox box;
@@ -111,22 +108,23 @@ void MainWindow::on_connect()
     wsCli.open(QUrl("ws://" + url));
 
     connect(&wsCli, &QWebSocket::textMessageReceived, this, &MainWindow::onTextMessageReceived);
-    connect(&wsCli, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), [=](QAbstractSocket::SocketError error) {
-        QString m;
-        m.sprintf("WebSocket error # %d ", error);
-        m.append("(" + wsCli.errorString() + ")");
-        on_error(m);
+    //connect(&wsCli, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(on_error(QAbstractSocket::SocketError)));
+    /**/
+    connect(&wsCli, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), [=](QAbstractSocket::SocketError err) {
+        on_error(err);
     });
+    /**/
 
     ui->status->clear();
     ui->status->setText("Web client connected to server " + url);
 
     ui->actionCONNECT->setEnabled(false);
     ui->actionDISCONNECT->setEnabled(true);
+
     ui->stx->setEnabled(true);
     ui->stx->setText("{\"auth\":\"");
-    ui->srv->setEnabled(false);
 
+    ui->srv->setEnabled(false);
 }
 //-----------------------------------------------------------------------
 void MainWindow::on_disconnect()
@@ -145,11 +143,14 @@ void MainWindow::on_disconnect()
     wsCli.disconnect();
 }
 //-----------------------------------------------------------------------
-void MainWindow::on_error(QString &er)
+void MainWindow::on_error(QAbstractSocket::SocketError SErr)
 {
 
     ui->status->clear();
-    ui->status->setText(er);
+    QString m;
+    m.sprintf("WebSocket error # %d ", SErr);
+    m.append("(" + wsCli.errorString() + ")");
+    ui->status->setText(m);
 
     ui->actionCONNECT->setEnabled(true);
     ui->actionDISCONNECT->setEnabled(false);
@@ -176,7 +177,6 @@ void MainWindow::onTextMessageReceived(QString message)
     QByteArray msg;
     msg.append(message);
     LogSave(nullptr, msg, true, false);
-
 }
 //-----------------------------------------------------------------------
 void MainWindow::timerEvent(QTimerEvent *event)
@@ -185,16 +185,17 @@ void MainWindow::timerEvent(QTimerEvent *event)
         time_t it_ct = QDateTime::currentDateTime().toTime_t();
         struct tm *ctimka = localtime(&it_ct);
         QString dt;
-        dt.sprintf("%02d.%02d.%04d %02d:%02d:%02d",
+        dt.sprintf("%02d.%02d %02d:%02d:%02d",
                     ctimka->tm_mday,
                     ctimka->tm_mon + 1,
-                    ctimka->tm_year + 1900,
+                    //ctimka->tm_year + 1900,
                     ctimka->tm_hour,
                     ctimka->tm_min,
                     ctimka->tm_sec);
         setWindowTitle(title +" ver. " + vers + "  |  " + dt);
     }
 }
+//-----------------------------------------------------------------------
 
 
 

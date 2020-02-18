@@ -65,7 +65,7 @@ private slots:
     void on_answer_clicked();
     void on_connect();
     void on_disconnect();
-    void on_error(QString &er);
+    void on_error(QAbstractSocket::SocketError SErr);
     void onTextMessageReceived(QString message);
 
 private:

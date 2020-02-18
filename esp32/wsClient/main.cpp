@@ -36,7 +36,6 @@ QString ws_srv = "192.168.0.103:8899";
         MainWindow wnd(nullptr, &ws_srv);
         wnd.show();
 
-
         app.exec();
     }
 
