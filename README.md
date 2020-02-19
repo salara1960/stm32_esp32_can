@@ -35,6 +35,9 @@ xmlParser:
   * Qt framework (5.12.1)
 esp32_Slave:
   * esp-idf - SDK для разработки ПО для микроконтроллера ESP32
+wsClient:
+  * Qt Creator (4.11.1)
+  * Qt framework (5.12.1)
 ```
 
 
