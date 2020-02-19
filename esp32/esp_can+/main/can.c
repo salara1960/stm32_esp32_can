@@ -114,6 +114,8 @@ static esp_err_t send_packet(can_message_t *msg, uint32_t *counter, const uint32
 uint32_t cnt = *counter;
 char stx[128] = {0};
 
+can_clear_transmit_queue();//clear tx queue
+
     esp_err_t ret = can_transmit(msg, ms / portTICK_RATE_MS);
     if (ret == ESP_OK) {//portMAX_DELAY)
         cnt++;
@@ -122,8 +124,11 @@ char stx[128] = {0};
         *counter = cnt;
         sprintf(stx, "Id=0x%X #%u TX[%u]=", msg->identifier, cnt, msg->data_length_code);
         for (int8_t i = 0; i < msg->data_length_code; i++) sprintf(stx+strlen(stx), " %02X", msg->data[i]);
-    } else sprintf(stx, "Can_tx Error (%d) : %s", ret, canErrStr(ret));
-    print_msg(1, TAGCAN, "%s\n", stx);
+    } else {
+        if (ret == ESP_ERR_TIMEOUT) can_clear_transmit_queue();//clear tx queue
+        else sprintf(stx, "Can_tx Error (%d) : %s", ret, canErrStr(ret));
+    }
+    if (strlen(stx)) print_msg(1, TAGCAN, "%s\n", stx);
 
     return ret;
 }
@@ -133,7 +138,7 @@ static esp_err_t recv_packet(can_message_t *msg, uint32_t *counter, const uint32
 uint32_t cnt = *counter;
 s_float_t *vcc = NULL;
 uint32_t *ts = NULL;
-char stx[128] = {0};
+char stx[128];
 
     esp_err_t ret = can_receive(msg, ms / portTICK_RATE_MS);
     if (ret == ESP_OK) {
@@ -172,11 +177,12 @@ can_message_t tx_msg = {
 };
 uint64_t *bit64 = (uint64_t *)&tx_msg.data[0];
 uint32_t cnt_tx = 0, cnt_rx = 0;
-
+char screen[64];
 bool yes = false;
 #ifdef SET_EPOCH_SEND
-    bool send_epoch = false;
+    uint32_t tmr_send = 0;
 #endif
+
 
     uint32_t spd = *(uint32_t *)arg;
     if (canMode == CAN_MODE_NO_ACK) tx_msg.self = 1;
@@ -185,11 +191,14 @@ bool yes = false;
     ets_printf("[%s] Start can_task with mode='%s'(%d) speed=%u KHz | FreeMem %u\n",
                TAGCAN, canModeName[canMode&3], canMode, spd, xPortGetFreeHeapSize());
 
+    ssd1306_clear_lines(2, 1);
+    ssd1306_text_xy(screen, ssd1306_calcx(sprintf(screen, "Can : %u KHz", spd)), 2);
+
     while (!restart_flag) {
 
         if (canMode == CAN_MODE_NO_ACK) {
 #ifdef SET_EPOCH_SEND
-            send_epoch = true;
+            tmr_send = 0;
 #endif
             if (check_tmr(loop_tmr)) {
                 (*bit64)++;
@@ -198,21 +207,28 @@ bool yes = false;
             }
         }
         //
-        recv_packet(&rx_msg, &cnt_rx, 10, &yes);
+        recv_packet(&rx_msg, &cnt_rx, 500, &yes);
         //
 #ifdef SET_EPOCH_SEND
-        if (!send_epoch) {
-            if (setDateTimeOK && yes) {//send MSG_EPOCH msg
-                //
-                tx_msg.data_length_code = sizeof(uint32_t);
-                time_t it_time = time(NULL);
-                memcpy((uint8_t *)&tx_msg.data[0], (uint8_t *)&it_time, sizeof(time_t));
-                send_packet(&tx_msg, &cnt_tx, 200);
-                send_epoch = true;
+        if (yes) {
+            yes = 0;
+            tmr_send = get_tmr(_1s);
+        }
+
+        if (tmr_send) {
+            if (check_tmr(tmr_send)) {
+                tmr_send = 0;
+                if (setDateTimeOK) {//send MSG_EPOCH msg
+                    tx_msg.data_length_code = sizeof(uint32_t);
+                    tx_msg.identifier = MSG_TIME_SET;
+                    time_t it_time = time(NULL);
+                    memcpy((uint8_t *)&tx_msg.data[0], (uint8_t *)&it_time, sizeof(time_t));
+                    send_packet(&tx_msg, &cnt_tx, 10);
+                    yes = false;
+                }
             }
         }
 #endif
-        vTaskDelay(10/portTICK_PERIOD_MS);
 
     }
 

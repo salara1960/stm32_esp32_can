@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+	<file>png/help.png</file>
+	<file>png/linux.png</file>
+	<file>png/info.png</file>
+	<file>png/salara.png</file>
+	<file>png/close.png</file>
+	<file>png/clear.png</file>
+	<file>png/conPC.png</file>
+	<file>png/disconPC.png</file>
+    </qresource>
+</RCC>

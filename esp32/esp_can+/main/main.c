@@ -41,7 +41,6 @@ ip_addr_t bca;
 
 esp_err_t fs_ok = ESP_FAIL;;
 
-uint32_t tls_client_ip = 0;
 
 #ifdef UDP_SEND_BCAST
     static const char *TAGU = "UDP";
@@ -54,7 +53,6 @@ uint32_t tls_client_ip = 0;
 #endif
 
 
-uint16_t tls_port = 0;
 uint16_t ws_port = 0;
 
 
@@ -441,7 +439,7 @@ void app_main()
         cli_id = ntohl(cli_id);
     }
 
-    vTaskDelay(1000 / portTICK_RATE_MS);
+    vTaskDelay(500 / portTICK_RATE_MS);
 
     ets_printf("\nApp version %s | MAC %s | SDK Version %s | FreeMem %u\n", Version, sta_mac, esp_get_idf_version(), xPortGetFreeHeapSize());
 
@@ -561,15 +559,6 @@ void app_main()
 
     wifi_param_ready = 1;
 
-#ifdef SET_TLS_SRV
-    err = read_param(PARAM_TLS_PORT, (void *)&tls_port, sizeof(uint16_t));
-    if ((err != ESP_OK) || (!rt)) {
-        tls_port = TLS_PORT_DEF;
-        save_param(PARAM_TLS_PORT, (void *)&tls_port, sizeof(uint16_t));
-    }
-    ets_printf("[%s] TLS_PORT: %u\n", TAGT, tls_port);
-#endif
-
 
 #ifdef SET_CAN_DEV
     err = read_param(PARAM_CAN_SPEED, (void *)&canSpeed, sizeof(uint16_t));
@@ -608,7 +597,7 @@ void app_main()
     i2c_ssd1306_init();
 
     ssd1306_on(false);
-    vTaskDelay(500 / portTICK_RATE_MS);
+//    vTaskDelay(500 / portTICK_RATE_MS);
 
     esp_err_t ssd_ok = ssd1306_init();
     if (ssd_ok == ESP_OK) ssd1306_pattern();
@@ -629,7 +618,7 @@ void app_main()
     if (wmode & 1) {// WIFI_MODE_STA) || WIFI_MODE_APSTA
         if (xTaskCreatePinnedToCore(&sntp_task, "sntp_task", STACK_SIZE_2K, work_sntp, 10, NULL, 0) != pdPASS) {//5,NULL,1
             ESP_LOGE(TAGS, "Create sntp_task failed | FreeMem %u", xPortGetFreeHeapSize());
-        } else vTaskDelay(250 / portTICK_RATE_MS);
+        }// else vTaskDelay(250 / portTICK_RATE_MS);
     }
 #endif
 
@@ -639,7 +628,7 @@ void app_main()
 
     if (xTaskCreatePinnedToCore(&net_log_task, "net_log_task", 4*STACK_SIZE_1K, &net_log_port, 6, NULL, 1) != pdPASS) {//7,NULL,1
         ESP_LOGE(TAGS, "Create net_log_task failed | FreeMem %u", xPortGetFreeHeapSize());
-    } else vTaskDelay(250 / portTICK_RATE_MS);
+    }// else vTaskDelay(250 / portTICK_RATE_MS);
 #endif
 
 
@@ -661,18 +650,10 @@ void app_main()
         if (xTaskCreatePinnedToCore(&can_task, "can_task", 4*STACK_SIZE_1K, &cspeed, 8, NULL, 0) != pdPASS) {
             ESP_LOGE(TAGCAN, "Create can_task failed | FreeMem %u", xPortGetFreeHeapSize());
         }
-        vTaskDelay(500 / portTICK_RATE_MS);
+        //vTaskDelay(500 / portTICK_RATE_MS);
     } else {
         ESP_LOGI(TAGCAN, "CAN Driver install Error. | FreeMem %u", xPortGetFreeHeapSize());
     }
-#endif
-
-
-#ifdef SET_TLS_SRV
-    if (xTaskCreatePinnedToCore(&tls_task, "tls_task", 8*STACK_SIZE_1K, &tls_port, 7, NULL, 0) != pdPASS) {//6,NULL,1)
-        ESP_LOGE(TAGTLS, "Create tls_task failed | FreeMem %u", xPortGetFreeHeapSize());
-    }
-    vTaskDelay(500 / portTICK_RATE_MS);
 #endif
 
 

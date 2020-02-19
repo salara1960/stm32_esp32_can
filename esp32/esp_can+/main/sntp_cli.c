@@ -46,10 +46,10 @@ total_task++;
             localtime_r(&now, &timeinfo);
             char strftime_buf[64] = {0};
             strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-            ets_printf("[%s] The current date/time is: %s %s\n", TAGS, strftime_buf, time_zone);
+            print_msg(1, TAGS, "The current date/time is: %s %s\n", strftime_buf, time_zone);
             setDateTimeOK = 1;
         } else {
-            ESP_LOGE(TAGS, "Error getting date/time from srv '%s %s'", sntp_server, time_zone);
+            print_msg(1, TAGS, "Error getting date/time from srv '%s %s'", sntp_server, time_zone);
         }
 
         sntp_stop();

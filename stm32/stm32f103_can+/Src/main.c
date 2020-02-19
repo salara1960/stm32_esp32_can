@@ -45,7 +45,9 @@ LINK:
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#ifdef SET_W25FLASH
+	#include "w25.h"
+#endif
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -65,6 +67,7 @@ CAN_HandleTypeDef hcan;
 RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
+SPI_HandleTypeDef hspi2;
 DMA_HandleTypeDef hdma_spi1_tx;
 
 TIM_HandleTypeDef htim1;
@@ -79,7 +82,9 @@ osThreadId defTaskHandle;
 	SPI_HandleTypeDef *portOLED;//hspi1
 #endif
 
-
+#ifdef SET_W25FLASH
+	SPI_HandleTypeDef *portFLASH;//hspi2
+#endif
 #ifdef SET_SEM_UART
 	osSemaphoreId semUART;
 #endif
@@ -140,6 +145,7 @@ static void MX_RTC_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_CAN_Init(void);
+static void MX_SPI2_Init(void);
 void TaskDef(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -188,6 +194,7 @@ int main(void)
   MX_TIM1_Init();
   MX_SPI1_Init();
   MX_CAN_Init();
+  MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -232,6 +239,11 @@ int main(void)
   semLCD = osSemaphoreCreate(osSemaphore(semLCD), 1);
 #endif
 //-------------------------------------------------
+
+#ifdef SET_W25FLASH
+  	  portFLASH = &hspi2;//SPI2 - W25_Flash
+#endif
+
 #ifdef SET_OLED_I2C
   	  portSSD = &hi2c2;
 #endif
@@ -266,7 +278,7 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defTask */
-  osThreadDef(defTask, TaskDef, osPriorityIdle, 0, 768);
+  osThreadDef(defTask, TaskDef, osPriorityNormal, 0, 768);
   defTaskHandle = osThreadCreate(osThread(defTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -402,11 +414,11 @@ static void MX_CAN_Init(void)
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 12;//24;//18;//48;
+  hcan.Init.Prescaler = 48;
   hcan.Init.Mode = CanMode;//CAN_MODE_NORMAL;
-  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;//CAN_SJW_3TQ;//CAN_SJW_1TQ
-  hcan.Init.TimeSeg1 = CAN_BS1_3TQ;//CAN_BS1_16TQ;//CAN_BS1_3TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;//CAN_BS2_8TQ;//CAN_BS2_2TQ
+  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
@@ -449,12 +461,12 @@ static void MX_CAN_Init(void)
   }
 
   /* Configure Transmission process */
-  TxHdr.StdId = MSG_PACK;
+  /*TxHdr.StdId = MSG_PACK;
   TxHdr.ExtId = 0x01;
   TxHdr.RTR = CAN_RTR_DATA;
   TxHdr.IDE = CAN_ID_STD;
   TxHdr.DLC = TxCanLen;
-  TxHdr.TransmitGlobalTime = DISABLE;
+  TxHdr.TransmitGlobalTime = DISABLE;*/
 
   /* Start the CAN peripheral */
   if (HAL_CAN_Start(&hcan) != HAL_OK) {
@@ -558,6 +570,46 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief SPI2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI2_Init(void)
+{
+
+  /* USER CODE BEGIN SPI2_Init 0 */
+#ifdef SET_W25FLASH
+	W25_UNSELECT();
+#endif
+  /* USER CODE END SPI2_Init 0 */
+
+  /* USER CODE BEGIN SPI2_Init 1 */
+
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI2_Init 2 */
+
+  /* USER CODE END SPI2_Init 2 */
 
 }
 
@@ -675,17 +727,18 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_ERROR_Pin|OLED_RST_Pin|OLED_CS_Pin|OLED_DC_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, W25_CS_Pin|LED_ERROR_Pin|OLED_RST_Pin|OLED_CS_Pin 
+                          |OLED_DC_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : LED_ERROR_Pin */
-  GPIO_InitStruct.Pin = LED_ERROR_Pin;
+  /*Configure GPIO pins : W25_CS_Pin LED_ERROR_Pin */
+  GPIO_InitStruct.Pin = W25_CS_Pin|LED_ERROR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_ERROR_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : OLED_RST_Pin OLED_CS_Pin OLED_DC_Pin */
   GPIO_InitStruct.Pin = OLED_RST_Pin|OLED_CS_Pin|OLED_DC_Pin;
@@ -975,12 +1028,19 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hc)
 {
     if (hc->Instance == CAN1) {
     	if (HAL_CAN_GetRxMessage(hc, CAN_RX_FIFO0, &RxHdr, RxData) == HAL_OK) {
-    		if (RxHdr.StdId == MSG_PACK) {
-    			if (RxHdr.DLC == sizeof(uint32_t)) {
+    		if (hc->Init.Mode == CAN_MODE_NORMAL) {
+    			if (RxHdr.StdId == MSG_TIME_SET) {
     				uint32_t epoch = 0;
     				memcpy((uint8_t *)&epoch, RxData, sizeof(uint32_t));
     				set_Date((time_t)epoch);
-    			} else if (hc->Init.Mode == CAN_MODE_LOOPBACK) {
+    				s_rx_can_t evt;
+    				memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
+    				memcpy((uint8_t *)&evt.data, RxData, RxHdr.DLC);
+    				BaseType_t PriorityTaskWoken = 1, xCopyPosition = 0;
+    				xQueueGenericSendFromISR(CanQueue, (const void *)&evt, &PriorityTaskWoken, xCopyPosition);
+    			}
+    		} else if (hc->Init.Mode == CAN_MODE_LOOPBACK) {
+    			if (RxHdr.StdId == MSG_PACK) {
     				s_rx_can_t evt;
     				memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
     				memcpy((uint8_t *)&evt.data, RxData, RxHdr.DLC);
@@ -1022,6 +1082,7 @@ void TaskDef(void const * argument)
 	}
 	Report(NULL, false, "\n\t----- Start default task (mode=%s speed=%u KHz) -----\n", buf, can_speed);
 
+
 	TxMailbox = CAN_TX_MAILBOX0;
 	uint16_t ik = 0;
 	s_rx_can_t evt = {0};
@@ -1036,13 +1097,20 @@ void TaskDef(void const * argument)
 	s_float_t vcc = {0, 0};
 #endif
 	//
+	ssd1306_clear_line(2);
+	ssd1306_text_xy(screen, ssd1306_calcx(sprintf(screen, "Can : %lu KHz", can_speed)), 2);
+	//
+#ifdef SET_W25FLASH
+	W25qxx_Init();
+#endif
+	//
 	TxCanLen = 8;
 	TxHdr.DLC = TxCanLen;
 	TxHdr.StdId = MSG_PACK;
 	TxHdr.ExtId = 0x01;
 	TxHdr.RTR = CAN_RTR_DATA;
 	TxHdr.IDE = CAN_ID_STD;
-	TxHdr.TransmitGlobalTime = ENABLE;//DISABLE;
+	TxHdr.TransmitGlobalTime = DISABLE;
 	//
 
 	/* Infinite loop */
@@ -1104,18 +1172,19 @@ void TaskDef(void const * argument)
 			dl = 0;
 			for (i = 0; i < evt.hdr.DLC; i++) sprintf(stx+strlen(stx), " %02X", evt.data[i]);
 			ssd1306_clear_line(8);
+			memcpy((uint8_t *)&ts, (uint8_t *)&evt.data, sizeof(uint32_t));
 			if (evt.hdr.StdId == MSG_PACK) {
-				memcpy((uint8_t *)&ts, (uint8_t *)&evt.data, sizeof(uint32_t));
-				if (evt.hdr.DLC == TxCanLen) {
-					dl = sprintf(screen, "Volt : %u.%u", vcc.cel, vcc.dro);
-					memcpy((uint8_t *)&vcc, (uint32_t *)&evt.data[4], sizeof(uint32_t));
-					Report(TAGCAN, true, "Id=0x%lX #%lu, Vcc=%u.%u Time=%lu RX[%lu]=%s\n",
-				                         evt.hdr.StdId, cnt_rx, vcc.cel, vcc.dro, ts, evt.hdr.DLC, stx);
-				} else if (evt.hdr.DLC == sizeof(uint32_t)) {
-					dl = sprintf(screen, "Rx msg #%lu", cnt_rx);
-					Report(TAGCAN, true, "Id=0x%lX #%lu, Epoch=%lu RX[%lu]=%s\n",
-								         evt.hdr.StdId, cnt_rx, ts, evt.hdr.DLC, stx);
-				}
+				dl = sprintf(screen, "Volt : %u.%u", vcc.cel, vcc.dro);
+				memcpy((uint8_t *)&vcc, (uint32_t *)&evt.data[4], sizeof(uint32_t));
+				Report(TAGCAN, true, "Id=0x%lX #%lu, Vcc=%u.%u Time=%lu RX[%lu]=%s\n",
+				                     evt.hdr.StdId, cnt_rx, vcc.cel, vcc.dro, ts, evt.hdr.DLC, stx);
+			} else if (evt.hdr.StdId == MSG_TIME_SET) {
+				dl = sprintf(screen, "Rx msg #%lu", cnt_rx);
+				Report(TAGCAN, true, "Id=0x%lX #%lu, Epoch=%lu RX[%lu]=%s\n",
+							         evt.hdr.StdId, cnt_rx, ts, evt.hdr.DLC, stx);
+			} else {
+				dl = sprintf(screen, "Rx msg #%lu", cnt_rx);
+				Report(TAGCAN, true, "Id=0x%lX #%lu, RX[%lu]=%s\n", evt.hdr.StdId, cnt_rx, evt.hdr.DLC, stx);
 			}
 			if (dl) ssd1306_text_xy(screen, ssd1306_calcx(dl), 8);
 		}

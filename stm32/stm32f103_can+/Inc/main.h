@@ -61,6 +61,8 @@ extern "C" {
 
 #define LOOP_FOREVER() while(1) {}
 
+#define SET_W25FLASH
+
 #define SET_OLED_SPI
 //#define SET_OLED_I2C
 //#define SET_MUTEX_LCD
@@ -86,6 +88,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define W25_CS_Pin GPIO_PIN_2
+#define W25_CS_GPIO_Port GPIOA
 #define LED_ERROR_Pin GPIO_PIN_3
 #define LED_ERROR_GPIO_Port GPIOA
 #define OLED_RST_Pin GPIO_PIN_4
@@ -98,6 +102,12 @@ void Error_Handler(void);
 #define LED1_GPIO_Port GPIOB
 #define CAN_LOOP_Pin GPIO_PIN_1
 #define CAN_LOOP_GPIO_Port GPIOB
+#define W25_SCK_Pin GPIO_PIN_13
+#define W25_SCK_GPIO_Port GPIOB
+#define W25_MISO_Pin GPIO_PIN_14
+#define W25_MISO_GPIO_Port GPIOB
+#define W25_MOSI_Pin GPIO_PIN_15
+#define W25_MOSI_GPIO_Port GPIOB
 #define TxD_Pin GPIO_PIN_9
 #define TxD_GPIO_Port GPIOA
 #define RxD_Pin GPIO_PIN_10
@@ -109,6 +119,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
 #define MSG_PACK 0x321 //message packet[8] = {{vcc.cel, vcc.dro}, ts}
+#define MSG_TIME_SET 0x320
 
 #ifdef SET_OLED_SPI
 	SPI_HandleTypeDef *portOLED;
@@ -120,6 +131,9 @@ void Error_Handler(void);
 	I2C_HandleTypeDef *portSSD;
 #endif
 
+#ifdef SET_W25FLASH
+	SPI_HandleTypeDef *portFLASH;//hspi2
+#endif
 
 #ifdef SET_FLOAT_PART
 	typedef struct {
@@ -142,6 +156,7 @@ osSemaphoreId semLCD;
 osMutexId mutexLCD;
 QueueHandle_t CanQueue;
 
+void Report(const char *tag, bool addTime, const char *fmt, ...);
 void errLedOn(const char *from);
 /* USER CODE END Private defines */
 

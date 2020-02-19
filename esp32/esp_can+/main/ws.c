@@ -410,11 +410,11 @@ fd_set read_Fds;
                     //---  for auth begin  ---
                     if (!auth && first) {
                         hash_str[0] = 0;
-                        len = sprintf(sts,"{\"ts\":%u}\r\n", (uint32_t)mk_hash(hash_str, instr));
+                        len = sprintf(sts,"{\"ts\":%u}", (uint32_t)mk_hash(hash_str, instr));
                         if (WS_write_data(sc, sts, len)) {
                             print_msg(1, TAGWS, "Error ws_write_data()\n");
                         } else {
-                            print_msg(1, TAGWS, "To client : %s", sts);
+                            print_msg(1, TAGWS, "To client : %s\n", sts);
                             first = 0;
                             wait_auth = get_tmr(timeout_auth);
                         }

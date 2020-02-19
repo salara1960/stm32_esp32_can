@@ -116,7 +116,6 @@
 
 #define DEV_MASTER ((uint8_t)0)
 
-#define TLS_PORT_DEF 4545
 
 #define sntp_srv_len   32
 #define wifi_param_len 32
@@ -166,7 +165,6 @@
 #define PARAM_SSID_NAME   "ssid"
 #define PARAM_KEY_NAME    "key"
 #define PARAM_WMODE_NAME  "wmode"
-#define PARAM_TLS_PORT    "tport"
 #define PARAM_WS_PORT     "wsport"
 #define PARAM_CAN_SPEED   "cspeed"
 
@@ -221,9 +219,6 @@ extern const int CONNECTED_BIT;
 extern uint8_t total_task;
 extern uint8_t restart_flag;
 
-extern uint8_t tls_hangup;
-extern uint32_t tls_client_ip;
-
 extern uint8_t temprature_sens_read();
 extern uint32_t get_vcc();
 extern float get_tChip();
@@ -257,10 +252,6 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
     extern int8_t udp_flag;
 #endif
 
-
-#ifdef SET_TLS_SRV
-    #include "tls_srv.h"
-#endif
 
 #ifdef SET_SSD1306
     #include "ssd1306.h"
