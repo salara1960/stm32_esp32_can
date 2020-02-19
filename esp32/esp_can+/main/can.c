@@ -207,7 +207,7 @@ bool yes = false;
             }
         }
         //
-        recv_packet(&rx_msg, &cnt_rx, 500, &yes);
+        recv_packet(&rx_msg, &cnt_rx, 10, &yes);
         //
 #ifdef SET_EPOCH_SEND
         if (yes) {
