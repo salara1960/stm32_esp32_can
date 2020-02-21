@@ -217,7 +217,7 @@ extern EventGroupHandle_t wifi_event_group;
 extern const int CONNECTED_BIT;
 
 extern uint8_t total_task;
-extern uint8_t restart_flag;
+extern volatile uint8_t restart_flag;
 
 extern uint8_t temprature_sens_read();
 extern uint32_t get_vcc();
@@ -242,14 +242,14 @@ extern esp_err_t save_param(const char *param_name, void *param_data, size_t len
 #ifdef SET_SNTP
     #include "sntp_cli.h"
 
-    extern uint8_t sntp_go;
+    extern volatile uint8_t sntp_go;
     extern char work_sntp[sntp_srv_len];
     extern char time_zone[sntp_srv_len];
 #endif
 
 #ifdef UDP_SEND_BCAST
-    extern uint8_t udp_start;
-    extern int8_t udp_flag;
+    extern volatile uint8_t udp_start;
+    extern volatile int8_t udp_flag;
 #endif
 
 

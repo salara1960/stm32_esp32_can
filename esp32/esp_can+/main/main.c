@@ -6,7 +6,7 @@
 
 //*******************************************************************
 
-uint8_t restart_flag = 0;
+volatile uint8_t restart_flag = 0;
 
 uint8_t total_task = 0;
 uint8_t last_cmd = 255;
@@ -39,17 +39,15 @@ char localip[32] = {0};
 esp_ip4_addr_t ip4;
 ip_addr_t bca;
 
-esp_err_t fs_ok = ESP_FAIL;;
-
 
 #ifdef UDP_SEND_BCAST
     static const char *TAGU = "UDP";
-    uint8_t udp_start = 0;
-    int8_t udp_flag = 0;
+    volatile uint8_t udp_start = 0;
+    volatile int8_t udp_flag = 0;
 #endif
 
 #ifdef SET_SNTP
-    uint8_t sntp_go = 0;
+    volatile uint8_t sntp_go = 0;
 #endif
 
 

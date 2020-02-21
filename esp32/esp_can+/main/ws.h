@@ -36,7 +36,7 @@
     typedef struct {
         char *msg;
     } s_ws_msg;
-    extern bool wsCliRdy;
+    extern volatile bool wsCliRdy;
     extern int ws_putMsg(char *st);
 
 
@@ -62,7 +62,6 @@
     #pragma pack(pop)
 
     extern const char *TAGWS;
-    extern uint8_t ws_start;
 
     extern void ws_task(void *arg);
 #endif

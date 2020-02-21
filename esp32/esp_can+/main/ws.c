@@ -9,9 +9,8 @@
 //------------------------------------------------------------------------------------------------------------
 
 const char *TAGWS = "WS";
-uint8_t ws_start = 0;
 
-bool wsCliRdy = false;
+volatile bool wsCliRdy = false;
 static bool WS_conn = false;
 
 const char WS_sec_WS_keys[] = "Sec-WebSocket-Key:";
@@ -530,7 +529,7 @@ done:
 void ws_task(void *arg)
 {
 total_task++;
-ws_start = 1;
+
 uint8_t rst = 0;
 int srv = -1, wsCli = -1;
 struct sockaddr_in client_addr;
@@ -582,7 +581,6 @@ unsigned int socklen = sizeof(client_addr);
     if (rst) restart_flag = 1;
 
     if (total_task) total_task--;
-    ws_start = 0;
 
     vTaskDelete(NULL);
 }

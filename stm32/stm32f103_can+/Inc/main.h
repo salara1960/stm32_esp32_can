@@ -74,7 +74,7 @@ extern "C" {
 //#define SET_MUTEX_UART
 #define SET_SEM_UART
 
-#define MAX_UART_BUF 256
+#define MAX_UART_BUF 1024//256
 #define MAX_CAN_BUF 8
 
 
@@ -132,6 +132,7 @@ void Error_Handler(void);
 #endif
 
 #ifdef SET_W25FLASH
+    #define CAN_SPEED_NAME "cspeed"
 	SPI_HandleTypeDef *portFLASH;//hspi2
 #endif
 
@@ -155,6 +156,8 @@ HAL_StatusTypeDef i2cError;
 osSemaphoreId semLCD;
 osMutexId mutexLCD;
 QueueHandle_t CanQueue;
+
+const char *eol;
 
 void Report(const char *tag, bool addTime, const char *fmt, ...);
 void errLedOn(const char *from);

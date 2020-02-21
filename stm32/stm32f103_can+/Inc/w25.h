@@ -6,7 +6,7 @@
 #ifdef SET_W25FLASH
 
 
-#define W25QXX_DEBUG
+//#define W25QXX_DEBUG
 
 #define W25QXX_DUMMY_BYTE 0xA5
 
@@ -26,6 +26,14 @@ typedef enum {
     W25Q256,
     W25Q512,
 } W25QXX_ID_t;
+
+typedef enum {
+	typeBIT8 = 0,
+	typeBIT16,
+	typeBIT32,
+	typeBIT64,
+	typeBITX
+} param_t;
 
 #pragma pack(push,1)
 typedef struct {
@@ -49,13 +57,32 @@ typedef struct {
 } w25qxx_t;
 #pragma pack(pop)
 
+//-------------------------------
+
+#pragma pack(push,1)
+typedef struct {
+    char name[7];
+    uint8_t type;
+    uint8_t busy;
+    uint8_t len;
+//    uint8_t body[246];
+} w25_page_t;
+#pragma pack(pop)
+
+#pragma pack(push,1)
+typedef struct {
+    uint8_t type;
+    uint8_t total;
+} w25_hdr_page_t;
+#pragma pack(pop)
 
 //------------------------------------------------------------------------------------------
-
+extern const char *TAGW25;
 extern w25qxx_t w25qxx;
 extern const char *all_chipID[];
 extern const uint32_t all_chipBLK[];
-
+extern const uint8_t max_param_type;
+extern const char *typeNames[];
 //------------------------------------------------------------------------------------------
 
 extern bool W25qxx_Init(void);
@@ -87,6 +114,10 @@ extern void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_
 extern void W25qxx_WriteBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_BlockSize);
 extern void W25qxx_ReadBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_BlockSize);
 
+extern void W25qxx_ErasePage(uint32_t PageAddr);
+extern int W25qxx_saveParam(const char *name, void *data, int type, uint8_t len);//return pageAddr or -1
+extern int W25qxx_readParam(const char *name, void *data, uint8_t *type, uint8_t *len);//return pageAddr or -1
+extern void prnHeadPage(uint32_t p);
 //------------------------------------------------------------------------------------------
 
 
