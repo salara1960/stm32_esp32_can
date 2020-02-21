@@ -160,7 +160,7 @@ void W25qxx_WaitForWriteEnd(void)
     W25_UNSELECT();
 }
 //------------------------------------------------------------------------------------------
-bool W25qxx_Init(void)
+bool W25qxx_Init(bool prn)
 {
     w25qxx.Lock = 1;
     bool ret = false;
@@ -168,15 +168,14 @@ bool W25qxx_Init(void)
     W25_UNSELECT();
 
     uint32_t id = W25qxx_ReadID() & 0xffff;
-//#ifdef W25QXX_DEBUG
-    Report(TAGW25, true, "w25qxx Init Begin... Chip ID:0x%X%s", id, eol);
-//#endif
+
+    if (prn) Report(TAGW25, true, "w25qxx Init Begin... Chip ID:0x%X%s", id, eol);
+
     id -= 0x4010; if (id > 0x0a) id = 0;
     w25qxx.ID         = id;              //W25Q10..W25Q512
     w25qxx.BlockCount = all_chipBLK[id]; //0..1024;
-//#ifdef W25QXX_DEBUG
-    Report(TAGW25, true, "Chip %s:\r\n", all_chipID[id]);
-//#endif
+
+    if (prn) Report(TAGW25, true, "Chip %s:\r\n", all_chipID[id]);
 
     if (id) {
     	w25qxx.PageSize = 256;
@@ -190,8 +189,8 @@ bool W25qxx_Init(void)
     	W25qxx_ReadStatusRegister(2);
     	W25qxx_ReadStatusRegister(3);
     	ret = true;
-//#ifdef W25QXX_DEBUG
-    	Report(NULL, false,"\tPage Size:\t%u bytes%s"
+
+    	if (prn) Report(NULL, false,"\tPage Size:\t%u bytes%s"
                  "\tPage Count:\t%u%s"
                  "\tSector Size:\t%u bytes%s"
                  "\tSector Count:\t%u%s"
@@ -205,7 +204,6 @@ bool W25qxx_Init(void)
                  w25qxx.BlockSize, eol,
                  w25qxx.BlockCount, eol,
                  w25qxx.CapacityInKiloByte, eol);
-//#endif
     }
 
     w25qxx.Lock = 0;
@@ -213,16 +211,17 @@ bool W25qxx_Init(void)
     return ret;
 }
 //------------------------------------------------------------------------------------------
-void W25qxx_EraseChip(void)
+void W25qxx_EraseChip(bool prn)
 {
+	if (!w25qxx.ID) return;
+
     while (w25qxx.Lock) W25qxx_Delay(1);//wait unlock device
 
     w25qxx.Lock = 1;//lock device
 
-#ifdef W25QXX_DEBUG
     uint32_t StartTime = HAL_GetTick();
-    Report(TAGW25, true, "%s Begin...%s", __func__, eol);
-#endif
+    if (prn) Report(TAGW25, true, "Begin erase chip '%s'...", all_chipID[w25qxx.ID]);
+
     W25qxx_WriteEnable();
 
     W25_SELECT();
@@ -232,9 +231,7 @@ void W25qxx_EraseChip(void)
     W25_UNSELECT();
 
     W25qxx_WaitForWriteEnd();
-#ifdef W25QXX_DEBUG
-    Report(TAGW25, true, "%s done after %u ms!%s", __func__, HAL_GetTick() - StartTime, eol);
-#endif
+    if (prn) Report(NULL, false, "%s done after %u ms!%s", __func__, HAL_GetTick() - StartTime, eol);
     W25qxx_Delay(10);
 
     w25qxx.Lock = 0;
@@ -273,6 +270,7 @@ void W25qxx_EraseSector(uint32_t SectorAddr)
     w25qxx.Lock = 0;
 }
 //------------------------------------------------------------------------------------------
+#ifdef W25QXX_MAX
 void W25qxx_EraseBlock(uint32_t BlockAddr)
 {
     while (w25qxx.Lock) W25qxx_Delay(1);
@@ -308,6 +306,7 @@ void W25qxx_EraseBlock(uint32_t BlockAddr)
 
     w25qxx.Lock = 0;
 }
+#endif
 //------------------------------------------------------------------------------------------
 uint32_t W25qxx_PageToSector(uint32_t PageAddress)
 {
@@ -486,6 +485,7 @@ NOT_EMPTY:
     return false;
 }
 //------------------------------------------------------------------------------------------
+#ifdef W25QXX_MAX
 bool W25qxx_IsEmptyBlock(uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToCheck_up_to_BlockSize)
 {
     while (w25qxx.Lock) W25qxx_Delay(1);
@@ -560,6 +560,7 @@ NOT_EMPTY:
 
     return false;
 }
+#endif
 //------------------------------------------------------------------------------------------
 void W25qxx_WriteByte(uint8_t pBuffer, uint32_t WriteAddr_inBytes)
 {
@@ -646,6 +647,7 @@ void W25qxx_WritePage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetIn
     w25qxx.Lock = 0;
 }
 //------------------------------------------------------------------------------------------
+#ifdef W25QXX_MAX
 void W25qxx_WriteSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_SectorSize)
 {
     if ((NumByteToWrite_up_to_SectorSize > w25qxx.SectorSize) || !NumByteToWrite_up_to_SectorSize)
@@ -689,7 +691,9 @@ void W25qxx_WriteSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t Offs
 #endif
 
 }
+#endif
 //------------------------------------------------------------------------------------------
+#ifdef W25QXX_MAX
 void W25qxx_WriteBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_BlockSize)
 {
     if ((NumByteToWrite_up_to_BlockSize > w25qxx.BlockSize) || !NumByteToWrite_up_to_BlockSize)
@@ -732,6 +736,7 @@ void W25qxx_WriteBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t Offset
 #endif
 
 }
+#endif
 //------------------------------------------------------------------------------------------
 void W25qxx_ReadByte(uint8_t *pBuffer, uint32_t Bytes_Address)
 {
@@ -851,6 +856,7 @@ void W25qxx_ReadPage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetInB
     w25qxx.Lock = 0;
 }
 //------------------------------------------------------------------------------------------
+#ifdef W25QXX_MAX
 void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_SectorSize)
 {
     if ((NumByteToRead_up_to_SectorSize > w25qxx.SectorSize) || !NumByteToRead_up_to_SectorSize)
@@ -892,7 +898,9 @@ void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t Offse
 #endif
 
 }
+#endif
 //------------------------------------------------------------------------------------------
+#ifdef W25QXX_MAX
 void W25qxx_ReadBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_BlockSize)
 {
     if ((NumByteToRead_up_to_BlockSize > w25qxx.BlockSize) || !NumByteToRead_up_to_BlockSize)
@@ -934,6 +942,7 @@ void W25qxx_ReadBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetI
 #endif
 
 }
+#endif
 //------------------------------------------------------------------------------------------
 void W25qxx_ErasePage(uint32_t PageAddr)
 {
@@ -968,17 +977,22 @@ void W25qxx_ErasePage(uint32_t PageAddr)
     w25qxx.Lock = 0;
 }
 //------------------------------------------------------------------------------------------
-void prnHeadPage(uint32_t page)
+void prnPage(uint32_t page, bool all)
 {
-#define buf_len 16
-uint8_t fb[buf_len];
+uint16_t prn_len = 16;
+uint8_t fb[MAX_PAGE_SIZE];
 
-	//W25qxx_Delay(10);
-	W25qxx_ReadPage(fb, page, 0, buf_len);
-	char *stx = (char *)pvPortMalloc(buf_len << 2);//vPortFree(buff);
+	if (all) prn_len = MAX_PAGE_SIZE;
+
+	W25qxx_ReadPage(fb, page, 0, prn_len);
+	char *stx = (char *)pvPortMalloc(prn_len << 2);//vPortFree(buff);
 	if (stx) {
 		sprintf(stx, "page=%lu :", page);
-		for (uint32_t i = 0; i < buf_len; i++) sprintf(stx+strlen(stx), " %02X", fb[i]);
+		if (prn_len > 16) sprintf(stx+strlen(stx), "%s", eol);
+		for (uint16_t i = 0; i < prn_len; i++) {
+			if ((i % 32 == 0) && (i > 2)) sprintf(stx+strlen(stx), "%s", eol);
+			sprintf(stx+strlen(stx), " %02X", fb[i]);
+		}
 		Report(TAGW25, true, "%s%s", stx, eol);
 		vPortFree(stx);
 	}
@@ -1084,6 +1098,26 @@ int ret = -1, page = -1;
 	}
 
 	return ret;
+}
+//------------------------------------------------------------------------------------------
+void AboutFlashChip()
+{
+	if (w25qxx.ID) Report(NULL, false,"Chip '%s':%s"
+			     	 	 "\tPage Size:\t%u bytes%s"
+                 	 	 "\tPage Count:\t%u%s"
+                 	 	 "\tSector Size:\t%u bytes%s"
+                 	 	 "\tSector Count:\t%u%s"
+                 	 	 "\tBlock Size:\t%u bytes%s"
+                 	 	 "\tBlock Count:\t%u%s"
+                 	 	 "\tCapacity:\t%u KBytes%s",
+						 all_chipID[w25qxx.ID], eol,
+						 w25qxx.PageSize, eol,
+						 w25qxx.PageCount, eol,
+						 w25qxx.SectorSize, eol,
+						 w25qxx.SectorCount, eol,
+						 w25qxx.BlockSize, eol,
+						 w25qxx.BlockCount, eol,
+						 w25qxx.CapacityInKiloByte, eol);
 }
 //------------------------------------------------------------------------------------------
 #endif

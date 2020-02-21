@@ -130,6 +130,8 @@ volatile static float dataADC = 0.0;
 volatile static bool setDate = false;
 static const char *_extDate = "date=";
 static const char *_canSpeed = "cspeed=";
+static const char *_canPage = "page=";//const char *_canSpeed = "page=";
+static const char *_canPAGE = "PAGE=";//const char *_canSpeed = "PAGE=";
 volatile uint8_t csd_flag = 0;
 volatile uint32_t extDate = 0;
 static char RxBuf[MAX_UART_BUF];
@@ -202,10 +204,9 @@ int main(void)
   MX_RTC_Init();
   MX_TIM1_Init();
   MX_SPI1_Init();
-  MX_CAN_Init();
   MX_SPI2_Init();
+  MX_CAN_Init();
   /* USER CODE BEGIN 2 */
-
 
   HAL_GPIO_WritePin(GPIOB, LED1_Pin | LED_ERROR_Pin, GPIO_PIN_SET);//LEDs OFF
 
@@ -219,9 +220,7 @@ int main(void)
   //"start" rx_interrupt
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&uRxByte, 1);
 
-
-  CanQueue = xQueueCreate(10, sizeof(s_rx_can_t));
-
+  CanQueue = xQueueCreate(5, sizeof(s_rx_can_t));
 
   /* USER CODE END 2 */
 
@@ -249,10 +248,6 @@ int main(void)
 #endif
 //-------------------------------------------------
 
-#ifdef SET_W25FLASH
-  	  portFLASH = &hspi2;//SPI2 - W25_Flash
-#endif
-
 #ifdef SET_OLED_I2C
   	  portSSD = &hi2c2;
 #endif
@@ -274,7 +269,9 @@ int main(void)
   		  }
   	  }
 #endif
-//-------------------------------------------------
+  	//MX_SPI2_Init();
+  	//MX_CAN_Init();
+  	//-------------------------------------------------
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -417,13 +414,37 @@ static void MX_CAN_Init(void)
 	if (HAL_GPIO_ReadPin(CAN_LOOP_GPIO_Port, CAN_LOOP_Pin) == GPIO_PIN_RESET) CanMode = CAN_MODE_LOOPBACK;//0
 	//hcan.Init.Mode = can_mode;//default CAN_MODE_NORMAL -> if CAN_LOOP_Pin == (GPIO_PIN_SET)1
 	// 36000 /12 /(3+2+1) = 500 KHz
+	// 36000 /24 /(3+2+1) = 250KHz
     // 36000 /48 /(3+2+1) = 125KHz
 	// 36000 /18 /(15+4+1) = 100KHz
 
+	//125//hcan.Init.Prescaler = 48;
+	//hcan.Init.Mode = CanMode;//CAN_MODE_NORMAL;
+	//hcan.Init.SyncJumpWidth = CAN_SJW_3TQ;//CAN_SJW_1TQ
+	//hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+	//hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
+
+	uint32_t delit = 48;
+
+#ifdef SET_W25FLASH
+	uint8_t pt = 0, pl = 0;
+	int page = W25qxx_readParam(CAN_SPEED_NAME, (void *)&can_speed, &pt, &pl);
+	if (page < 0) {
+		can_speed = 125;//default speed
+		page = W25qxx_saveParam(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, sizeof(uint32_t));
+	}
+	if (page >= 0) {
+		switch (can_speed) {
+		    case 1000: delit =  6; break;
+			case  500: delit = 12; break;
+			case  250: delit = 24; break;
+		}
+	}
+#endif
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 48;
+  hcan.Init.Prescaler = delit;//48;
   hcan.Init.Mode = CanMode;//CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_3TQ;//CAN_SJW_1TQ
   hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
@@ -440,7 +461,7 @@ static void MX_CAN_Init(void)
   }
   /* USER CODE BEGIN CAN_Init 2 */
 
-  can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);//500KHz
+  if (!can_speed) can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);
   //can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);//250KHz
   //can_speed = (36000 / hcan.Init.Prescaler) / (1 + 3 + 2);//125KHz
   //can_speed = (36000 / hcan.Init.Prescaler) / (1 + 15 + 4);//100KHz
@@ -591,9 +612,7 @@ static void MX_SPI2_Init(void)
 {
 
   /* USER CODE BEGIN SPI2_Init 0 */
-#ifdef SET_W25FLASH
-	W25_UNSELECT();
-#endif
+
   /* USER CODE END SPI2_Init 0 */
 
   /* USER CODE BEGIN SPI2_Init 1 */
@@ -617,7 +636,12 @@ static void MX_SPI2_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI2_Init 2 */
+#ifdef SET_W25FLASH
+	portFLASH = &hspi2;//SPI2 - W25_Flash
+	W25_UNSELECT();
 
+  	W25qxx_Init(false);
+#endif
   /* USER CODE END SPI2_Init 2 */
 
 }
@@ -1032,12 +1056,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 						csd_flag = 1;
 					}
 				} else {
-					uk = strstr(RxBuf, "page=");//const char *_canSpeed = "page=";
+					uk = strstr(RxBuf, _canPage);//const char *_canSpeed = "page=";
 					if (uk) {
 						uk += 5;
-						if (!csd_flag) {
+						if (!page_flag) {
 							new_page = atoi(uk);
 							page_flag = 1;
+						}
+					} else {
+						uk = strstr(RxBuf, _canPAGE);//const char *_canSpeed = "PAGE=";
+						if (uk) {
+							uk += 5;
+							if (!page_flag) {
+								new_page = atoi(uk);
+								page_flag = 2;
+							}
 						}
 					}
 				}
@@ -1091,6 +1124,9 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hc)
 void TaskDef(void const * argument)
 {
   /* USER CODE BEGIN 5 */
+
+	//MX_CAN_Init();
+
 char buf[1024] = {0};
 
 TxMailbox = CAN_TX_MAILBOX0;
@@ -1104,34 +1140,16 @@ uint32_t ts = 0, tmr = get_tmr(1);
 uint32_t cnt_tx = 0, cnt_rx = 0;
 short dl = 0, ldl = 1;
 
+TxCanLen = 8;
+TxHdr.DLC = TxCanLen;
+TxHdr.StdId = MSG_PACK;
+TxHdr.ExtId = 0;//0x01;
+TxHdr.RTR = CAN_RTR_DATA;
+TxHdr.IDE = CAN_ID_STD;
+TxHdr.TransmitGlobalTime = DISABLE;
+
 #ifdef SET_FLOAT_PART
 	s_float_t vcc = {0, 0};
-#endif
-
-	osDelay(1000);
-
-#ifdef SET_W25FLASH
-	uint8_t *fb = NULL;
-	int page = -1;
-	uint8_t ptype = 0;
-	uint8_t plen = 0;
-
-	W25qxx_Init();
-	if (w25qxx.ID) {
-		//W25qxx_EraseSector(0);
-		fb = (uint8_t *)pvPortMalloc(w25qxx.PageSize);//vPortFree(buff);
-		if (fb) {
-			page = W25qxx_readParam(CAN_SPEED_NAME, (void *)&can_speed, &ptype, &plen);//return pageAddr or -1
-			if (page != -1) {//return pageAddr or -1
-				Report(TAGW25, true, "Param '%s'=%u KHz present on page #%d%s", CAN_SPEED_NAME, can_speed, page, eol);
-			} else {
-				page = W25qxx_saveParam(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, sizeof(uint32_t));
-				if (page != -1) {
-					Report(TAGW25, true, "Param '%s'=%u KHz present on page #%d%s", CAN_SPEED_NAME, can_speed, page, eol);
-				}
-			}
-		}
-	}
 #endif
 	//
 	switch (hcan.Init.Mode) {
@@ -1149,20 +1167,37 @@ short dl = 0, ldl = 1;
 		break;
 			default : strcpy(buf, "Unknown CAN_MODE");
 	}
-	Report(NULL, false, "\n\t----- Start default task (mode=%s speed=%u KHz) -----\n\n", buf, can_speed);
+	//
+	Report(NULL, false, "%sStart default task | CAN : mode=%s speed=%u KHz%s", eol, buf, can_speed, eol);
+	//
+#ifdef SET_W25FLASH
+
+	//W25qxx_EraseChip(true);
+
+	uint8_t *fb = NULL;
+	int page = -1;
+	uint8_t ptype = 0;
+	uint8_t plen = 0;
+	bool priz = false;
+	fb = (uint8_t *)pvPortMalloc(w25qxx.PageSize);//vPortFree(buff);
+	AboutFlashChip();
+	//
+	uint32_t param = TxHdr.StdId;
+	page = W25qxx_readParam(CAN_ID_MSG_NAME, (void *)&param, &ptype, &plen);
+	if (page == -1) {
+		Report(TAGW25, true, "Param '%s' not present -> save...%s", CAN_ID_MSG_NAME, eol);
+		page = W25qxx_saveParam(CAN_ID_MSG_NAME, (void *)&param, typeBIT32, sizeof(uint32_t));
+	}
+	if (page != -1) {
+		Report(TAGW25, true, "Param '%s'=0x%X KHz present on page #%d%s", CAN_ID_MSG_NAME, param, page, eol);
+		prnPage(page, false);
+	}
+	//
+#endif
+
 	//
 	ssd1306_clear_line(2);
 	ssd1306_text_xy(screen, ssd1306_calcx(sprintf(screen, "Can : %lu KHz", can_speed)), 2);
-	//
-	//
-	//
-	TxCanLen = 8;
-	TxHdr.DLC = TxCanLen;
-	TxHdr.StdId = MSG_PACK;
-	TxHdr.ExtId = 0x01;
-	TxHdr.RTR = CAN_RTR_DATA;
-	TxHdr.IDE = CAN_ID_STD;
-	TxHdr.TransmitGlobalTime = DISABLE;
 	//
 
 	/* Infinite loop */
@@ -1252,13 +1287,14 @@ short dl = 0, ldl = 1;
 				if (page != -1) {
 					page = W25qxx_readParam(CAN_SPEED_NAME, (void *)&can_speed, &ptype, &plen);//return pageAddr or -1
 					Report(TAGW25, true, "Param '%s'=%u KHz present on page #%d%s", CAN_SPEED_NAME, can_speed, page, eol);
-					prnHeadPage(page);
+					prnPage(page, false);
 				}
 			}
 		}
 		if (page_flag) {
+			if (page_flag == 2) priz = true; else priz = false;
 			page_flag = 0;
-			prnHeadPage(new_page);
+			prnPage(new_page, priz);
 		}
 #endif
 

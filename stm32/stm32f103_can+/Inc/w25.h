@@ -7,10 +7,13 @@
 
 
 //#define W25QXX_DEBUG
+//#define W25QXX_MAX
+
+#define MAX_PAGE_SIZE 256
 
 #define W25QXX_DUMMY_BYTE 0xA5
 
-#define W25qxx_Delay(delay) osDelay(delay)
+#define W25qxx_Delay(delay) HAL_Delay(delay)
 #define W25_SELECT()   HAL_GPIO_WritePin(W25_CS_GPIO_Port, W25_CS_Pin, GPIO_PIN_RESET);//set to 0
 #define W25_UNSELECT() HAL_GPIO_WritePin(W25_CS_GPIO_Port, W25_CS_Pin, GPIO_PIN_SET);  //set to 1
 
@@ -85,11 +88,13 @@ extern const uint8_t max_param_type;
 extern const char *typeNames[];
 //------------------------------------------------------------------------------------------
 
-extern bool W25qxx_Init(void);
+extern bool W25qxx_Init(bool prn);
 
-extern void W25qxx_EraseChip(void);
+extern void W25qxx_EraseChip(bool prn);
 extern void W25qxx_EraseSector(uint32_t SectorAddr);
-extern void W25qxx_EraseBlock(uint32_t BlockAddr);
+#ifdef W25QXX_MAX
+	extern void W25qxx_EraseBlock(uint32_t BlockAddr);
+#endif
 
 extern uint32_t W25qxx_PageToSector(uint32_t PageAddress);
 extern uint32_t W25qxx_PageToBlock(uint32_t PageAddress);
@@ -99,7 +104,9 @@ extern uint32_t W25qxx_BlockToPage(uint32_t BlockAddress);
 
 extern bool W25qxx_IsEmptyPage(uint32_t Page_Address, uint32_t OffsetInByte, uint32_t NumByteToCheck_up_to_PageSize);
 extern bool W25qxx_IsEmptySector(uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToCheck_up_to_SectorSize);
-extern bool W25qxx_IsEmptyBlock(uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToCheck_up_to_BlockSize);
+#ifdef W25QXX_MAX
+	extern bool W25qxx_IsEmptyBlock(uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToCheck_up_to_BlockSize);
+#endif
 
 extern void W25qxx_WriteByte(uint8_t pBuffer, uint32_t Bytes_Address);
 extern void W25qxx_ReadByte(uint8_t *pBuffer, uint32_t Bytes_Address);
@@ -108,16 +115,19 @@ extern void W25qxx_ReadBytes(uint8_t *pBuffer, uint32_t ReadAddr, uint32_t NumBy
 extern void W25qxx_WritePage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_PageSize);
 extern void W25qxx_ReadPage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_PageSize);
 
-extern void W25qxx_WriteSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_SectorSize);
-extern void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_SectorSize);
+#ifdef W25QXX_MAX
+	extern void W25qxx_WriteSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_SectorSize);
+	extern void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_SectorSize);
 
-extern void W25qxx_WriteBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_BlockSize);
-extern void W25qxx_ReadBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_BlockSize);
+	extern void W25qxx_WriteBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_BlockSize);
+	extern void W25qxx_ReadBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_BlockSize);
+#endif
 
 extern void W25qxx_ErasePage(uint32_t PageAddr);
 extern int W25qxx_saveParam(const char *name, void *data, int type, uint8_t len);//return pageAddr or -1
 extern int W25qxx_readParam(const char *name, void *data, uint8_t *type, uint8_t *len);//return pageAddr or -1
-extern void prnHeadPage(uint32_t p);
+extern void prnPage(uint32_t p, bool all);
+extern void AboutFlashChip();
 //------------------------------------------------------------------------------------------
 
 
