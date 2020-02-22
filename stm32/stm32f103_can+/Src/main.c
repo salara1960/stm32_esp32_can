@@ -113,6 +113,7 @@ const char *TAGCAN = "sCAN";
 
 static uint32_t new_page = 0;
 volatile uint8_t page_flag = 0;
+volatile uint8_t restart_flag = 0;
 
 const char *eol = "\n";
 
@@ -132,6 +133,7 @@ static const char *_extDate = "date=";
 static const char *_canSpeed = "cspeed=";
 static const char *_canPage = "page=";//const char *_canSpeed = "page=";
 static const char *_canPAGE = "PAGE=";//const char *_canSpeed = "PAGE=";
+static const char *_restart = "restart";
 volatile uint8_t csd_flag = 0;
 volatile uint32_t extDate = 0;
 static char RxBuf[MAX_UART_BUF];
@@ -418,7 +420,7 @@ static void MX_CAN_Init(void)
     // 36000 /48 /(3+2+1) = 125KHz
 	// 36000 /18 /(15+4+1) = 100KHz
 
-	//125//hcan.Init.Prescaler = 48;
+	//125//hcan.Init.Prescaler = 48;//for 125 KHz
 	//hcan.Init.Mode = CanMode;//CAN_MODE_NORMAL;
 	//hcan.Init.SyncJumpWidth = CAN_SJW_3TQ;//CAN_SJW_1TQ
 	//hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
@@ -427,17 +429,17 @@ static void MX_CAN_Init(void)
 	uint32_t delit = 48;
 
 #ifdef SET_W25FLASH
-	uint8_t pt = 0, pl = 0;
-	int page = W25qxx_readParam(CAN_SPEED_NAME, (void *)&can_speed, &pt, &pl);
+	int page = W25qxx_readParamExt(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, NULL, false);
 	if (page < 0) {
 		can_speed = 125;//default speed
-		page = W25qxx_saveParam(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, sizeof(uint32_t));
+		page = W25qxx_saveParamExt(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, sizeof(uint32_t), false);
 	}
 	if (page >= 0) {
 		switch (can_speed) {
 		    case 1000: delit =  6; break;
 			case  500: delit = 12; break;
 			case  250: delit = 24; break;
+				//default: delit = 48;
 		}
 	}
 #endif
@@ -1071,6 +1073,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 								new_page = atoi(uk);
 								page_flag = 2;
 							}
+						} else {
+							if (strstr(RxBuf, _restart)) {//const char *_restart = "restart";
+								if (!restart_flag) restart_flag = 1;
+							}
 						}
 					}
 				}
@@ -1088,26 +1094,26 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hc)
 {
     if (hc->Instance == CAN1) {
     	if (HAL_CAN_GetRxMessage(hc, CAN_RX_FIFO0, &RxHdr, RxData) == HAL_OK) {
+    		bool yes = false;
     		if (hc->Init.Mode == CAN_MODE_NORMAL) {
     			if (RxHdr.StdId == MSG_TIME_SET) {
     				uint32_t epoch = 0;
     				memcpy((uint8_t *)&epoch, RxData, sizeof(uint32_t));
     				set_Date((time_t)epoch);
-    				s_rx_can_t evt;
-    				memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
-    				memcpy((uint8_t *)&evt.data, RxData, RxHdr.DLC);
-    				BaseType_t PriorityTaskWoken = 1, xCopyPosition = 0;
-    				xQueueGenericSendFromISR(CanQueue, (const void *)&evt, &PriorityTaskWoken, xCopyPosition);
+    				yes = true;
     			}
     		} else if (hc->Init.Mode == CAN_MODE_LOOPBACK) {
     			if (RxHdr.StdId == MSG_PACK) {
-    				s_rx_can_t evt;
-    				memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
-    				memcpy((uint8_t *)&evt.data, RxData, RxHdr.DLC);
-    				BaseType_t PriorityTaskWoken = 1, xCopyPosition = 0;
-    				xQueueGenericSendFromISR(CanQueue, (const void *)&evt, &PriorityTaskWoken, xCopyPosition);
+    				yes = true;
     			}
-    		}// else if ((hc->Init.Mode == CAN_MODE_LOOPBACK) && (RxHdr.StdId == MSG_PACK) && (RxHdr.DLC == TxCanLen)) {
+    		}
+    		if (yes) {
+    			s_rx_can_t evt;
+    			memcpy((uint8_t *)&evt, (uint8_t *)&RxHdr, sizeof(CAN_RxHeaderTypeDef));
+    			memcpy((uint8_t *)&evt.data, RxData, RxHdr.DLC);
+    			BaseType_t PriorityTaskWoken = 1, xCopyPosition = 0;
+    			xQueueGenericSendFromISR(CanQueue, (const void *)&evt, &PriorityTaskWoken, xCopyPosition);
+    		}
     	} else Error_Handler();
     }
 }
@@ -1172,27 +1178,22 @@ TxHdr.TransmitGlobalTime = DISABLE;
 	//
 #ifdef SET_W25FLASH
 
-	//W25qxx_EraseChip(true);
-
 	uint8_t *fb = NULL;
 	int page = -1;
-	uint8_t ptype = 0;
 	uint8_t plen = 0;
 	bool priz = false;
 	fb = (uint8_t *)pvPortMalloc(w25qxx.PageSize);//vPortFree(buff);
+/*
+	W25qxx_EraseChip(true);
+*/
 	AboutFlashChip();
-	//
-	uint32_t param = TxHdr.StdId;
-	page = W25qxx_readParam(CAN_ID_MSG_NAME, (void *)&param, &ptype, &plen);
-	if (page == -1) {
-		Report(TAGW25, true, "Param '%s' not present -> save...%s", CAN_ID_MSG_NAME, eol);
-		page = W25qxx_saveParam(CAN_ID_MSG_NAME, (void *)&param, typeBIT32, sizeof(uint32_t));
+	/*
+	if (w25qxx.ID) {
+		Report(TAGW25, true, "Start format all sectors (%lu)...", w25qxx.SectorCount);
+		for (int sek = 0; sek < w25qxx.SectorCount; sek++) formatSector(sek, false);
+		Report(NULL, false, " done%s", w25qxx.SectorCount, eol);
 	}
-	if (page != -1) {
-		Report(TAGW25, true, "Param '%s'=0x%X KHz present on page #%d%s", CAN_ID_MSG_NAME, param, page, eol);
-		prnPage(page, false);
-	}
-	//
+	*/
 #endif
 
 	//
@@ -1283,11 +1284,11 @@ TxHdr.TransmitGlobalTime = DISABLE;
 			csd_flag = 0;
 			if (new_can_speed != can_speed) {
 				Report(TAGW25, true, "Old_can_speed=%lu New_can_speed=%lu -> save...%s", can_speed, new_can_speed, eol);
-				page = W25qxx_saveParam(CAN_SPEED_NAME, (void *)&new_can_speed, typeBIT32, sizeof(uint32_t));
+				page = W25qxx_saveParamExt(CAN_SPEED_NAME, (void *)&new_can_speed, typeBIT32, sizeof(uint32_t), true);
 				if (page != -1) {
-					page = W25qxx_readParam(CAN_SPEED_NAME, (void *)&can_speed, &ptype, &plen);//return pageAddr or -1
+					page = W25qxx_readParamExt(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, &plen, true);//return pageAddr or -1
 					Report(TAGW25, true, "Param '%s'=%u KHz present on page #%d%s", CAN_SPEED_NAME, can_speed, page, eol);
-					prnPage(page, false);
+					prnPage(page, true);
 				}
 			}
 		}
@@ -1295,6 +1296,9 @@ TxHdr.TransmitGlobalTime = DISABLE;
 			if (page_flag == 2) priz = true; else priz = false;
 			page_flag = 0;
 			prnPage(new_page, priz);
+		}
+		if (restart_flag) {
+			NVIC_SystemReset();
 		}
 #endif
 

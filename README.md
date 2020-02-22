@@ -47,15 +47,23 @@ wsClient:
 ```
 * stm32_Master:
 
-        ----- Start default task (mode=CAN_MODE_NORMAL speed=500 KHz) -----
-000.00:00:10 [sCAN] Id=0x321 #1, Vcc=3.260 Time=10 TX[8]= 0A 00 00 00 03 00 04 01
-000.00:00:20 [sCAN] Id=0x321 #2, Vcc=3.252 Time=20 TX[8]= 14 00 00 00 03 00 FC 00
-000.00:00:30 [sCAN] Id=0x321 #3, Vcc=3.254 Time=30 TX[8]= 1E 00 00 00 03 00 FE 00
-000.00:00:40 [sCAN] Id=0x321 #4, Vcc=3.255 Time=40 TX[8]= 28 00 00 00 03 00 FF 00
-000.00:00:50 [sCAN] Id=0x321 #5, Vcc=3.254 Time=50 TX[8]= 32 00 00 00 03 00 FE 00
-000.00:01:00 [sCAN] Id=0x321 #6, Vcc=3.252 Time=60 TX[8]= 3C 00 00 00 03 00 FC 00
-000.00:01:10 [sCAN] Id=0x321 #7, Vcc=3.254 Time=70 TX[8]= 46 00 00 00 03 00 FE 00
-000.00:01:20 [sCAN] Id=0x321 #8, Vcc=3.247 Time=80 TX[8]= 50 00 00 00 03 00 F7 00
+Start default task | CAN : mode=CAN_MODE_NORMAL speed=125 KHz
+Chip 'W25Q64':
+        Page Size:      256 bytes
+        Page Count:     32768
+        Sector Size:    4096 bytes
+        Sector Count:   2048
+        Block Size:     65536 bytes
+        Block Count:    128
+        Capacity:       8192 KBytes
+000.00:00:10 [sCAN] Id=0x321 #1, Vcc=3.238 Time=10 TX[8]= 0A 00 00 00 03 00 EE 00
+000.00:00:20 [sCAN] Id=0x321 #2, Vcc=3.245 Time=20 TX[8]= 14 00 00 00 03 00 F5 00
+000.00:00:30 [sCAN] Id=0x321 #3, Vcc=3.248 Time=30 TX[8]= 1E 00 00 00 03 00 F8 00
+000.00:00:40 [sCAN] Id=0x321 #4, Vcc=3.252 Time=40 TX[8]= 28 00 00 00 03 00 FC 00
+000.00:00:50 [sCAN] Id=0x321 #5, Vcc=3.248 Time=50 TX[8]= 32 00 00 00 03 00 F8 00
+000.00:01:00 [sCAN] Id=0x321 #6, Vcc=3.238 Time=60 TX[8]= 3C 00 00 00 03 00 EE 00
+000.00:01:10 [sCAN] Id=0x321 #7, Vcc=3.251 Time=70 TX[8]= 46 00 00 00 03 00 FB 00
+000.00:01:20 [sCAN] Id=0x321 #8, Vcc=3.248 Time=80 TX[8]= 50 00 00 00 03 00 F8 00
 000.00:01:30 [sCAN] Id=0x321 #9, Vcc=3.238 Time=90 TX[8]= 5A 00 00 00 03 00 EE 00
 ...
 

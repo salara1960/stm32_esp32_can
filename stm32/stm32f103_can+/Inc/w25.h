@@ -63,7 +63,7 @@ typedef struct {
 //-------------------------------
 
 #pragma pack(push,1)
-typedef struct {
+typedef struct {//typeBITX
     char name[7];
     uint8_t type;
     uint8_t busy;
@@ -71,7 +71,7 @@ typedef struct {
 //    uint8_t body[246];
 } w25_page_t;
 #pragma pack(pop)
-
+//--------------------------------------
 #pragma pack(push,1)
 typedef struct {
     uint8_t type;
@@ -79,6 +79,46 @@ typedef struct {
 } w25_hdr_page_t;
 #pragma pack(pop)
 
+#pragma pack(push,1)
+typedef struct {//typeBIT8 - sizeof=9 - total=28
+    char name[7];
+    uint8_t busy;
+    uint8_t data;
+} w25_BIT8_t;
+#pragma pack(pop)
+
+#pragma pack(push,1)
+typedef struct {//typeBIT16 - sizeof=10 - total=25
+    char name[7];
+    uint8_t busy;
+    uint16_t data;
+} w25_BIT16_t;
+#pragma pack(pop)
+
+#pragma pack(push,1)
+typedef struct {//typeBIT32 - sizeof=12 - total=21
+    char name[7];
+    uint8_t busy;
+    uint32_t data;
+} w25_BIT32_t;
+#pragma pack(pop)
+
+#pragma pack(push,1)
+typedef struct {//typeBIT64 - sizeof=16 - total=15
+    char name[7];
+    uint8_t busy;
+    uint64_t data;
+} w25_BIT64_t;
+#pragma pack(pop)
+
+#pragma pack(push,1)
+typedef struct {//typeBITX
+    char name[7];
+    uint8_t busy;
+    uint8_t len;
+//    uint8_t body[245];
+} w25_BITX_t;
+#pragma pack(pop)
 //------------------------------------------------------------------------------------------
 extern const char *TAGW25;
 extern w25qxx_t w25qxx;
@@ -124,10 +164,22 @@ extern void W25qxx_ReadPage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t Of
 #endif
 
 extern void W25qxx_ErasePage(uint32_t PageAddr);
-extern int W25qxx_saveParam(const char *name, void *data, int type, uint8_t len);//return pageAddr or -1
-extern int W25qxx_readParam(const char *name, void *data, uint8_t *type, uint8_t *len);//return pageAddr or -1
+#ifdef W25QXX_MAX
+	extern void W25qxx_EraseItem(w25_hdr_page_t *hdr, uint32_t PageAddr, uint32_t item, uint32_t item_len);
+
+	extern int W25qxx_saveParam(const char *name, void *data, int type, uint8_t len);//return pageAddr or -1
+#endif
+extern int W25qxx_saveParamExt(const char *name, void *data, int type, uint8_t len, bool prn);
+
+#ifdef W25QXX_MAX
+	extern int W25qxx_readParam(const char *name, void *data, uint8_t *type, uint8_t *len);//return pageAddr or -1
+#endif
+
+extern int W25qxx_readParamExt(const char *name, void *data, uint8_t type, uint8_t *len, bool prn);
+
 extern void prnPage(uint32_t p, bool all);
 extern void AboutFlashChip();
+extern void formatSector(uint32_t sec, bool prn);
 //------------------------------------------------------------------------------------------
 
 
