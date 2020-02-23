@@ -134,6 +134,7 @@ void Error_Handler(void);
 #ifdef SET_W25FLASH
     #define CAN_SPEED_NAME "cspeed"
     #define CAN_ID_MSG_NAME "cmsg"
+    #define CAN_VER_NAME "ver"
 	SPI_HandleTypeDef *portFLASH;//hspi2
 #endif
 

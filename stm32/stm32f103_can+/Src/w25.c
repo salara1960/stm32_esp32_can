@@ -31,6 +31,7 @@ const uint32_t all_chipBLK[] = {
 };
 const uint8_t max_param_type = 6;
 const char *typeNames[] = {"BIT8","BIT16","BIT32","BIT64","BITX", "???"};
+
 //------------------------------------------------------------------------------------------
 uint8_t W25qxx_Spi(uint8_t Data)
 {
@@ -656,7 +657,6 @@ void W25qxx_WritePage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetIn
     w25qxx.Lock = 0;
 }
 //------------------------------------------------------------------------------------------
-#ifdef W25QXX_MAX
 void W25qxx_WriteSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_SectorSize)
 {
     if ((NumByteToWrite_up_to_SectorSize > w25qxx.SectorSize) || !NumByteToWrite_up_to_SectorSize)
@@ -700,7 +700,6 @@ void W25qxx_WriteSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t Offs
 #endif
 
 }
-#endif
 //------------------------------------------------------------------------------------------
 #ifdef W25QXX_MAX
 void W25qxx_WriteBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToWrite_up_to_BlockSize)
@@ -871,7 +870,7 @@ void W25qxx_ReadPage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetInB
     w25qxx.Lock = 0;
 }
 //------------------------------------------------------------------------------------------
-#ifdef W25QXX_MAX
+//#ifdef W25QXX_MAX
 void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_SectorSize)
 {
     if ((NumByteToRead_up_to_SectorSize > w25qxx.SectorSize) || !NumByteToRead_up_to_SectorSize)
@@ -913,7 +912,7 @@ void W25qxx_ReadSector(uint8_t *pBuffer, uint32_t Sector_Address, uint32_t Offse
 #endif
 
 }
-#endif
+//#endif
 //------------------------------------------------------------------------------------------
 #ifdef W25QXX_MAX
 void W25qxx_ReadBlock(uint8_t *pBuffer, uint32_t Block_Address, uint32_t OffsetInByte, uint32_t NumByteToRead_up_to_BlockSize)
@@ -989,7 +988,7 @@ void W25qxx_ErasePage(uint32_t PageAddr)
 #ifdef W25QXX_DEBUG
     Report(NULL, false, " done after %u ms%s", HAL_GetTick() - StartTime, eol);
 #endif
-    W25qxx_Delay(1);
+    //W25qxx_Delay(1);
 
     w25qxx.Lock = 0;
 }
@@ -1135,15 +1134,19 @@ int W25qxx_saveParamExt(const char *name, void *data, int type, uint8_t len, boo
 int ret = -1;
 
 	if (!w25qxx.ID || !data || !len) return ret;
-	if (type > typeBITX) return ret;
+	if (type >= typeMAX) return ret;
 
 	w25_hdr_page_t hdr;
 	W25qxx_ReadPage((uint8_t *)&hdr, type, 0, sizeof(w25_hdr_page_t));
+	if (hdr.type >= typeMAX) return ret;
 	uint32_t offset = sizeof(w25_hdr_page_t);
 
 	int item = -1, yes = 0;//item_number on page tip
 	w25_BIT64_t one;
 	uint32_t item_len = 0;
+	uint32_t it = 0;
+	uint8_t *keep = NULL;
+	uint32_t item_start;
 	switch (type) {
 		case typeBIT8:
 		{
@@ -1169,9 +1172,57 @@ int ret = -1;
 			yes = 1;
 		}
 		break;
+		case typeBITX:
+		{
+			w25_BITX_t arr;
+			for (it = type; it < (w25qxx.SectorSize/w25qxx.PageSize); it++) {
+				W25qxx_ReadPage((uint8_t *)&arr, it, offset, sizeof(w25_BITX_t));
+				if (!arr.busy) {
+					if (!strncmp(arr.name, name, strlen(name))) {
+						item = it;
+						break;
+					}
+				} else {
+					if (ret == -1) ret = it;
+				}
+			}
+			if (item == -1) {
+				if (ret == -1) return ret; else item = ret;
+				//if (prn) Report(TAGW25, true, "Param '%s' Not present on all pages, try saving on page=%d%s", name, item, eol);
+			} else {
+				//if (prn) Report(TAGW25, true, "Param '%s' present at page=%d, start erase this page%s", name, item, eol);
+				uint32_t sec = W25qxx_PageToSector(item);
+				//if (prn) Report(TAGW25, true, "Param '%s' present at item=%d (sec=%lu), start erase this item%s", name, item, sec, eol);
+				keep = (uint8_t *)pvPortMalloc(w25qxx.SectorSize);
+				if (!keep) {
+					if (prn) Report(TAGW25, true, "No memory for keep sector #%lu (param '%s')%s", sec, name, eol);
+					return -1;
+				}
+				item_start = (item * w25qxx.PageSize) + sizeof(w25_hdr_page_t);
+				W25qxx_ReadSector(keep, sec, 0, w25qxx.SectorSize);//push sec
+				memset(keep + item_start, 0xff, (w25qxx.PageSize - sizeof(w25_hdr_page_t))&0xff);
+				//if (prn) Report(TAGW25, true, "For param '%s' item=%d sec=%lu start_addr=%lu%s", name, item, sec, item_start, eol);
+				W25qxx_EraseSector(sec);
+				W25qxx_WriteSector(keep, sec, 0, w25qxx.SectorSize);//pop page
+				vPortFree(keep);
+			}
+			memset(arr.name, 0, sizeof(arr.name));
+			int dl = strlen(name);
+			if (dl > sizeof(arr.name)) dl = sizeof(arr.name);
+			strncpy(arr.name, name, dl);
+			arr.len = len;
+			arr.busy = 0;
+			W25qxx_WritePage((uint8_t *)&arr, item, sizeof(w25_hdr_page_t), sizeof(w25_BITX_t));//restore header
+			W25qxx_WritePage((uint8_t *)data, item, sizeof(w25_hdr_page_t) + sizeof(w25_BITX_t), len);
+			type = item;
+			ret = item;
+			yes = 0;
+		}
+		break;
+			//default : return ret;
 	}//switch (tip)
 	if (yes) {
-		uint32_t it = 0;
+		it = 0;
 		while (it < hdr.total) {
 			W25qxx_ReadPage((uint8_t *)&one, type, offset, item_len);
 			if (!one.busy) {
@@ -1185,22 +1236,32 @@ int ret = -1;
 			it++;
 			offset += item_len;
 		}
-		uint32_t item_start;
 		if (item != -1) {//item founded !
-			if (prn) Report(TAGW25, true, "Param '%s' present at item=%lu, start erase this item%s", name, item, eol);
-			uint8_t *keep = (uint8_t *)pvPortMalloc(w25qxx.PageSize);//vPortFree(buff);
-			if (keep) {
-				item_start = sizeof(w25_hdr_page_t) + (item * item_len);
-				W25qxx_ReadPage(keep, type, 0, w25qxx.PageSize);//push page
-				memset(keep + item_start, 0xff, item_len);
+			uint32_t sec = W25qxx_PageToSector(type);
+			//if (prn) Report(TAGW25, true, "Param '%s' present at page/item=%d/%d sec=%lu, start erase this sector%s",
+			//		                      name, type, item, sec, eol);
+			keep = (uint8_t *)pvPortMalloc(w25qxx.SectorSize);
+			if (!keep) {
+				if (prn) Report(TAGW25, true, "No memory for keep sector #%lu (param '%s')%s", sec, name, eol);
+				return -1;
 			}
-			W25qxx_ErasePage(type);
-			if (keep) W25qxx_WritePage(keep, type, 0, w25qxx.PageSize);//pop page
-			     else W25qxx_WritePage((uint8_t *)&hdr, type, 0, sizeof(w25_hdr_page_t));//restore header
-			if (keep) vPortFree(keep);
+			W25qxx_ReadSector(keep, sec, 0, w25qxx.SectorSize);//push sector
+			//if (prn) Report(TAGW25, true, "Push sector #%lu (mem=%lu)%s", sec, xPortGetFreeHeapSize(), eol);
+
+			item_start = (type * w25qxx.PageSize) + (sizeof(w25_hdr_page_t) + (item * item_len));
+			memset(keep + item_start, 0xff, item_len);
+			//if (prn) Report(TAGW25, true, "Prepare buffer for param '%s' page/item=%d/%d sec=%lu start_addr=%lu len=%u%s",
+			//		                      name, type, item, sec, item_start, item_len, eol);
+			//
+			W25qxx_EraseSector(sec);
+			//
+			W25qxx_WriteSector(keep, sec, 0, w25qxx.SectorSize);//pop page
+			vPortFree(keep);
+			//if (prn) Report(TAGW25, true, "Pop sector #%lu (mem=%lu)%s", sec, xPortGetFreeHeapSize(), eol);
+
 		} else {
 			if (ret == -1) return ret; else item = ret;
-			if (prn) Report(TAGW25, true, "Param '%s' Not present on page=%lu, try saving at item=%lu%s", name, type, item, eol);
+			//if (prn) Report(TAGW25, true, "Param '%s' Not present on page=%d, try saving at item=%d%s", name, type, item, eol);
 		}
 		item_start = sizeof(w25_hdr_page_t) + (item * item_len);
 		memset(one.name, 0, sizeof(one.name));
@@ -1209,12 +1270,14 @@ int ret = -1;
 		strncpy(one.name, name, dl);
 		memcpy((uint8_t *)&one.data, (uint8_t *)data, len);
 		one.busy = 0;
+		//if (prn) Report(TAGW25, true, "Write to page/item=%d/%d param '%s' (adr=%lu len=%u)%s", type, item, name, item_start, item_len, eol);
 		W25qxx_WritePage((uint8_t *)&one, type, item_start, item_len);//sabe one item
-	}
-	if (item >= 0) ret = type;
 
-	if (prn) Report(TAGW25, true, "_saveParamExt(%s, void *data, %s, %u) -> write to page/item # %u/%d%s",
-			                      name, typeNames[type], len, type, ret, eol);
+		if (item >= 0) ret = type;
+	}
+
+	if (prn) Report(TAGW25, true, "_saveParamExt(%s, void *data, %s, %u) -> write to page/item #%d/%d%s",
+			                      name, typeNames[type], len, type, item, eol);
 
 	return ret;
 }
@@ -1257,15 +1320,17 @@ int W25qxx_readParamExt(const char *name, void *data, uint8_t type, uint8_t *len
 {
 int ret = -1;
 
-	if (!w25qxx.ID || !data || (type > typeBITX)) return ret;
+	if (!w25qxx.ID || !data || (type >= typeMAX)) return ret;
 
 	w25_hdr_page_t hdr;
 	W25qxx_ReadPage((uint8_t *)&hdr, type, 0, sizeof(w25_hdr_page_t));
+	if (hdr.type >= typeMAX) return ret;
 	uint32_t offset = sizeof(w25_hdr_page_t);
 
 	int item = -1, yes = 0;//item_number on page tip
 	w25_BIT64_t one;
 	uint32_t item_len = 0;
+	uint32_t it = 0;
 	switch (type) {
 		case typeBIT8:
 			item_len = sizeof(w25_BIT8_t);
@@ -1283,9 +1348,36 @@ int ret = -1;
 			item_len = sizeof(w25_BIT64_t);
 			yes = 1;
 		break;
+		case typeBITX:
+		{
+			w25_BITX_t arr;
+			for (it = type; it < (w25qxx.SectorSize/w25qxx.PageSize); it++) {
+				W25qxx_ReadPage((uint8_t *)&arr, it, offset, sizeof(w25_BITX_t));
+				if (!arr.busy) {
+					if (!strncmp(arr.name, name, strlen(name))) {
+						ret = it;
+						break;
+					}
+				}
+			}
+			if (ret != -1) {
+				uint8_t *buf = (uint8_t *)pvPortMalloc(arr.len);//vPortFree(buff);
+				if (buf) {
+					W25qxx_ReadPage(buf, it, offset + sizeof(w25_BITX_t), arr.len);
+					memcpy((uint8_t *)data, buf, arr.len);
+					if (len) *len = arr.len;
+					//if (prn) Report(TAGW25, true, "Param '%s' present at page=%lu%s", name, it, eol);
+					vPortFree(buf);
+				}
+			}
+			yes = 0;
+			if (item >= 0) ret = type;
+		}
+		break;
+		//default : return ret;
 	}//switch (tip)
 	if (yes) {
-		uint32_t it = 0;
+		it = 0;
 		while (it < hdr.total) {
 			W25qxx_ReadPage((uint8_t *)&one, type, offset, item_len);
 			if (!one.busy) {
@@ -1298,7 +1390,7 @@ int ret = -1;
 			offset += item_len;
 		}
 		if (item < 0) return ret;
-		if (prn) Report(TAGW25, true, "Param '%s' present at item=%lu%s", name, item, eol);
+		//if (prn) Report(TAGW25, true, "Param '%s' present at item=%lu%s", name, item, eol);
 		uint8_t dl = item_len - sizeof(one.name) + sizeof(one.busy);
 		memcpy((uint8_t *)data, (uint8_t *)&one.data, dl);
 		if (len) *len = dl;
@@ -1341,13 +1433,13 @@ void formatSector(uint32_t sec, bool prn)
 	w25_hdr_page_t hdr = {typeBITX, 1};
 	if (prn) Report(NULL, false, "[%s] Sector=%lu page=%lu..%lu :%s", __func__, sec, startPage, stopPage, eol);
 	for (uint32_t i = startPage; i < stopPage; i++) {
-		if ((i % nPage) < typeBITX) {
-			hdr.type = (uint8_t)i;
+		if ((i % (nPage*sec)) < typeBITX) {
+			hdr.type = (uint8_t)(i % (nPage*sec));
 		} else {
 			hdr.type = (uint8_t)typeBITX,
 			hdr.total = 1;
 		}
-		switch (i % nPage) {//select by type
+		switch (i % (nPage*sec)) {//select by type
 			case typeBIT8://format page for typeBIT8
 				hdr.total = (w25qxx.PageSize - sizeof(w25_hdr_page_t)) / sizeof(w25_BIT8_t);
 			break;

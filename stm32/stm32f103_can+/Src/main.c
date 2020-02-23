@@ -52,6 +52,9 @@ LINK:
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+//const char *version = "Version 1.1 (23.02.2020)";
+//const char *version = "Version 1.2.1 (23.02.2020)";//error while erase page (no decision yet)
+const char *version = "Version 1.3 (23.02.2020)";//fixed bug while erase (enable erase sector only !)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -114,6 +117,9 @@ const char *TAGCAN = "sCAN";
 static uint32_t new_page = 0;
 volatile uint8_t page_flag = 0;
 volatile uint8_t restart_flag = 0;
+
+volatile uint8_t sector_flag = 0;
+static uint32_t sector = 0;
 
 const char *eol = "\n";
 
@@ -429,6 +435,7 @@ static void MX_CAN_Init(void)
 	uint32_t delit = 48;
 
 #ifdef SET_W25FLASH
+/**/
 	int page = W25qxx_readParamExt(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, NULL, false);
 	if (page < 0) {
 		can_speed = 125;//default speed
@@ -442,6 +449,7 @@ static void MX_CAN_Init(void)
 				//default: delit = 48;
 		}
 	}
+/**/
 #endif
 
   /* USER CODE END CAN_Init 1 */
@@ -1076,6 +1084,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 						} else {
 							if (strstr(RxBuf, _restart)) {//const char *_restart = "restart";
 								if (!restart_flag) restart_flag = 1;
+							} else {
+								uk = strstr(RxBuf, "format=");//const char *_format = "format=";
+								if (uk) {
+									uk += 7;
+									if (!sector_flag) {
+										sector = atoi(uk);
+										sector_flag = 1;
+									}
+								}
 							}
 						}
 					}
@@ -1183,17 +1200,53 @@ TxHdr.TransmitGlobalTime = DISABLE;
 	uint8_t plen = 0;
 	bool priz = false;
 	fb = (uint8_t *)pvPortMalloc(w25qxx.PageSize);//vPortFree(buff);
+
 /*
 	W25qxx_EraseChip(true);
 */
 	AboutFlashChip();
-	/*
-	if (w25qxx.ID) {
-		Report(TAGW25, true, "Start format all sectors (%lu)...", w25qxx.SectorCount);
-		for (int sek = 0; sek < w25qxx.SectorCount; sek++) formatSector(sek, false);
-		Report(NULL, false, " done%s", w25qxx.SectorCount, eol);
+	/**/
+	if (w25qxx.ID && fb) {
+		/*
+		ts = w25qxx.SectorCount / 64;
+		Report(NULL, false, "Start format all sectors (%lu) ", w25qxx.SectorCount);
+		for (int sek = 0; sek < w25qxx.SectorCount; sek++) {
+			formatSector(sek, false);
+			ts--;
+			if (!ts) {
+				ts = w25qxx.SectorCount / 64;
+				Report(NULL, false, ".");
+			}
+		}
+		Report(NULL, false, " done%s", eol);
+		*/
+		//
+		//formatSector(0, true);
+		//
+		memset(fb, 0, w25qxx.PageSize);
+		page = W25qxx_readParamExt(CAN_VER_NAME, (void *)fb, typeBITX, &plen, true);//return pageAddr or -1
+		if (page == -1) {
+			Report(TAGW25, true, "Param '%s' Not present, save current value='%s'%s", CAN_VER_NAME, version, eol);
+			page = W25qxx_saveParamExt(CAN_VER_NAME, (void *)version, typeBITX, (uint8_t)strlen(version), true);
+			if (page != -1) {
+				page = W25qxx_readParamExt(CAN_VER_NAME, (void *)fb, typeBITX, &plen, true);
+			}
+		} else {
+			if (strncmp((char *)fb, version, strlen(version))) {
+				Report(TAGW25, true, "Param '%s' :\n\tcur_value='%s'\n\told_value='%.*s'%s",
+						              CAN_VER_NAME, version, plen, fb, eol);
+				page = W25qxx_saveParamExt(CAN_VER_NAME, (void *)version, typeBITX, (uint8_t)strlen(version), true);
+				if (page != -1) {
+					page = W25qxx_readParamExt(CAN_VER_NAME, (void *)fb, typeBITX, &plen, true);
+				}
+			}
+		}
+		if (page != -1) {
+			Report(TAGW25, true, "Param '%s[%u]'='%.*s' present on page #%d%s", CAN_VER_NAME, plen, plen, (char *)fb, page, eol);
+			//prnPage(page, true);
+		}
 	}
-	*/
+	/**/
 #endif
 
 	//
@@ -1288,7 +1341,7 @@ TxHdr.TransmitGlobalTime = DISABLE;
 				if (page != -1) {
 					page = W25qxx_readParamExt(CAN_SPEED_NAME, (void *)&can_speed, typeBIT32, &plen, true);//return pageAddr or -1
 					Report(TAGW25, true, "Param '%s'=%u KHz present on page #%d%s", CAN_SPEED_NAME, can_speed, page, eol);
-					prnPage(page, true);
+					prnPage(typeBIT32, true);
 				}
 			}
 		}
@@ -1296,6 +1349,10 @@ TxHdr.TransmitGlobalTime = DISABLE;
 			if (page_flag == 2) priz = true; else priz = false;
 			page_flag = 0;
 			prnPage(new_page, priz);
+		}
+		if (sector_flag) {
+			sector_flag = 0;
+			formatSector(sector, true);
 		}
 		if (restart_flag) {
 			NVIC_SystemReset();
